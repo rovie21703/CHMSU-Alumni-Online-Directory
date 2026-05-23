@@ -1,0 +1,31 @@
+export interface AlumniRecord {
+    id: string;
+    submittedAt: string;
+    consentGiven: boolean;
+    name: string;
+    sex: string;
+    dateOfBirth: string;
+    age: string;
+    birthProvince: string;
+    birthCity: string;
+    placeOfBirth: string;
+    mobileNo: string;
+    address: string;
+    civilStatus: string;
+    religion: string;
+    email: string;
+    schoolAttended: string;
+    yearGraduated: string;
+    campus: string;
+    degree: string;
+    highestAttainment: string;
+    eligibility: string;
+    employmentStatus: string;
+    employmentSector: string;
+    presentEmploymentStatus: string;
+    occupation: string;
+    position: string;
+    yearEmployed: string;
+    company: string;
+    locationOfEmployment: string;
+}
