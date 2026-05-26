@@ -22,6 +22,16 @@ class AlumniPolicy
         return $user->isAdmin() || $user->campus_id !== null;
     }
 
+    public function update(User $user, Alumni $alumni): bool
+    {
+        return $this->userCanAccessAlumni($user, $alumni);
+    }
+
+    public function delete(User $user, Alumni $alumni): bool
+    {
+        return $this->userCanAccessAlumni($user, $alumni);
+    }
+
     private function userCanAccessAlumni(User $user, Alumni $alumni): bool
     {
         if ($user->isAdmin()) {
@@ -32,8 +42,18 @@ class AlumniPolicy
             return false;
         }
 
-        $alumni->loadMissing('program');
+        $alumni->loadMissing(['program', 'school']);
 
-        return $alumni->program?->campus_id === $user->campus_id;
+        // Alumni with a program — check via program's campus
+        if ($alumni->program !== null) {
+            return $alumni->program->campus_id === $user->campus_id;
+        }
+
+        // Alumni without a program (non-CHMSU/CHMSC schools) — check via school's campus
+        if ($alumni->school !== null) {
+            return $alumni->school->campus_id === $user->campus_id;
+        }
+
+        return false;
     }
 }

@@ -15,7 +15,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'admin@chmsu.edu.ph'],
             [
                 'name' => 'CHMSU Admin',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Admin.chmsu2026'),
                 'role' => UserRole::Admin,
                 'campus_id' => null,
                 'email_verified_at' => now(),

@@ -27,5 +27,6 @@ export interface AlumniRecord {
     position: string;
     yearEmployed: string;
     company: string;
+    companyAddress: string;
     locationOfEmployment: string;
 }

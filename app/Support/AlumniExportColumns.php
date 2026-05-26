@@ -35,7 +35,8 @@ class AlumniExportColumns
             'occupation' => ['label' => 'Occupation', 'group' => 'employment'],
             'position' => ['label' => 'Position', 'group' => 'employment'],
             'year_employed' => ['label' => 'Year Employed', 'group' => 'employment'],
-            'company' => ['label' => 'Company / Organization', 'group' => 'employment'],
+            'company' => ['label' => 'Company / Organization Name', 'group' => 'employment'],
+            'company_address' => ['label' => 'Company / Organization Address', 'group' => 'employment'],
             'location_of_employment' => ['label' => 'Location of Employment', 'group' => 'employment'],
         ];
     }
@@ -84,5 +85,4 @@ class AlumniExportColumns
     {
         return self::definitions()[$key]['label'];
     }
-
 }

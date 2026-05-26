@@ -15,7 +15,7 @@ class AssignRequestId
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = (string) Str::uuid();
 
         $request->attributes->set('request_id', $requestId);
 

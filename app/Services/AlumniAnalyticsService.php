@@ -124,6 +124,10 @@ class AlumniAnalyticsService
             'PSC' => $records->filter(fn (Alumni $r) => $r->school?->code === 'PSC')->count(),
             'CHMSC' => $records->filter(fn (Alumni $r) => $r->school?->code === 'CHMSC')->count(),
             'CHMSU' => $records->filter(fn (Alumni $r) => $r->school?->code === 'CHMSU')->count(),
+            'NOCAT' => $records->filter(fn (Alumni $r) => $r->school?->code === 'NOCAT')->count(),
+            'NOSAT' => $records->filter(fn (Alumni $r) => $r->school?->code === 'NOSAT')->count(),
+            'NOPCC' => $records->filter(fn (Alumni $r) => $r->school?->code === 'NOPCC')->count(),
+            'NOSOF' => $records->filter(fn (Alumni $r) => $r->school?->code === 'NOSOF')->count(),
         ];
 
         return [

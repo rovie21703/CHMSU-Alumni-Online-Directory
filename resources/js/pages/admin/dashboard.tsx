@@ -40,6 +40,10 @@ import {
   Mail,
   Calendar,
   Shield,
+  Pencil,
+  Trash2,
+  Save,
+  AlertTriangle,
 } from "lucide-react";
 import { AlumniExportDialog } from '@/components/admin/alumni-export-dialog';
 import { ChmsuLogo } from '@/components/chmsu-logo';
@@ -122,15 +126,15 @@ function SortIcon({ col, sortKey, dir }: { col: string; sortKey: string; dir: So
 }
 
 // Detail Modal
+const DetailField = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+    <p className="text-gray-800 text-sm">{value || "—"}</p>
+  </div>
+);
+
 function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose: () => void }) {
   const schools = record.schoolAttended ? [record.schoolAttended] : [];
-
-  const Field = ({ label, value }: { label: string; value: string }) => (
-    <div>
-      <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-gray-800 text-sm">{value || "—"}</p>
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -167,23 +171,23 @@ function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose:
               Personal Information
             </h4>
             <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
-              <Field label="Sex" value={record.sex} />
-              <Field label="Date of Birth" value={record.dateOfBirth} />
-              <Field label="Age" value={record.age} />
-              <Field label="Civil Status" value={record.civilStatus} />
-              <Field label="Religion" value={record.religion} />
-              <Field label="Place of Birth" value={record.placeOfBirth} />
+              <DetailField label="Sex" value={record.sex} />
+              <DetailField label="Date of Birth" value={record.dateOfBirth} />
+              <DetailField label="Age" value={record.age} />
+              <DetailField label="Civil Status" value={record.civilStatus} />
+              <DetailField label="Religion" value={record.religion} />
+              <DetailField label="Place of Birth" value={record.placeOfBirth} />
               <div className="col-span-2 flex gap-2">
                 <Mail size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <Field label="Email" value={record.email} />
+                <DetailField label="Email" value={record.email} />
               </div>
               <div className="col-span-2 flex gap-2">
                 <Phone size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <Field label="Mobile" value={record.mobileNo} />
+                <DetailField label="Mobile" value={record.mobileNo} />
               </div>
               <div className="col-span-2 flex gap-2">
                 <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <Field label="Address" value={record.address} />
+                <DetailField label="Address" value={record.address} />
               </div>
             </div>
           </div>
@@ -206,13 +210,13 @@ function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose:
                     : <span className="text-gray-400 text-sm">—</span>}
                 </div>
               </div>
-              <Field label="Campus" value={record.campus} />
-              <Field label="Year Graduated" value={record.yearGraduated} />
+              <DetailField label="Campus" value={record.campus} />
+              <DetailField label="Year Graduated" value={record.yearGraduated} />
               <div className="col-span-2">
-                <Field label="Degree / Course" value={record.degree} />
+                <DetailField label="Degree / Course" value={record.degree} />
               </div>
-              <Field label="Highest Attainment" value={record.highestAttainment} />
-              <Field label="Eligibility" value={record.eligibility} />
+              <DetailField label="Highest Attainment" value={record.highestAttainment} />
+              <DetailField label="Eligibility" value={record.eligibility} />
             </div>
           </div>
 
@@ -222,17 +226,20 @@ function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose:
               Employment Data
             </h4>
             <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
-              <Field label="Employment Status" value={record.employmentStatus} />
-              <Field label="Employment Sector" value={record.employmentSector || "—"} />
-              <Field label="Present Status" value={record.presentEmploymentStatus || "—"} />
-              <Field label="Year Employed" value={record.yearEmployed || "—"} />
-              <Field label="Occupation" value={record.occupation || "—"} />
-              <Field label="Position" value={record.position || "—"} />
+              <DetailField label="Employment Status" value={record.employmentStatus} />
+              <DetailField label="Employment Sector" value={record.employmentSector || "—"} />
+              <DetailField label="Present Status" value={record.presentEmploymentStatus || "—"} />
+              <DetailField label="Year Employed" value={record.yearEmployed || "—"} />
+              <DetailField label="Occupation" value={record.occupation || "—"} />
+              <DetailField label="Position" value={record.position || "—"} />
               <div className="col-span-2">
-                <Field label="Company / Organization" value={record.company || "—"} />
+                <DetailField label="Company / Organization Name" value={record.company || "—"} />
               </div>
               <div className="col-span-2">
-                <Field
+                <DetailField label="Company / Organization Address" value={record.companyAddress || "—"} />
+              </div>
+              <div className="col-span-2">
+                <DetailField
                   label="Location"
                   value={
                     record.locationOfEmployment?.toUpperCase().includes("ABROAD")
@@ -250,6 +257,291 @@ function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose:
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Calendar size={12} />
             Submitted: {new Date(record.submittedAt).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Edit modal input style helpers
+const editInputClass = "w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-sm";
+const editSelectClass = "w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-sm appearance-none bg-white";
+const editLabelClass = "block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1";
+
+interface EditFormData {
+  name: string;
+  sex: string;
+  date_of_birth: string;
+  mobile_no: string;
+  address: string;
+  civil_status: string;
+  religion: string;
+  email: string;
+  year_graduated: string;
+  highest_attainment: string;
+  eligibility: string;
+  degree: string;
+  employment_status: string;
+  employment_sector: string;
+  present_employment_status: string;
+  occupation: string;
+  position: string;
+  year_employed: string;
+  company: string;
+  company_address: string;
+  location_of_employment: string;
+}
+
+function AlumniEditModal({
+  record,
+  onClose,
+}: {
+  record: AlumniRecord;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<EditFormData>({
+    name: record.name,
+    sex: record.sex,
+    date_of_birth: record.dateOfBirth,
+    mobile_no: record.mobileNo,
+    address: record.address,
+    civil_status: record.civilStatus,
+    religion: record.religion,
+    email: record.email,
+    year_graduated: record.yearGraduated,
+    highest_attainment: record.highestAttainment,
+    eligibility: record.eligibility,
+    degree: record.degree,
+    employment_status: record.employmentStatus,
+    employment_sector: record.employmentSector,
+    present_employment_status: record.presentEmploymentStatus,
+    occupation: record.occupation,
+    position: record.position,
+    year_employed: record.yearEmployed,
+    company: record.company,
+    company_address: record.companyAddress,
+    location_of_employment: record.locationOfEmployment,
+  });
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleChange = (field: keyof EditFormData, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    router.put(
+      route('admin.alumni.update', { alumnus: record.id }),
+      form,
+      {
+        onSuccess: () => onClose(),
+        onError: (errs) => {
+          setErrors(errs as Record<string, string>);
+          setSaving(false);
+        },
+        onFinish: () => setSaving(false),
+        preserveScroll: true,
+      },
+    );
+  };
+
+  const InputField = ({ label, field, type = "text", placeholder = "" }: { label: string; field: keyof EditFormData; type?: string; placeholder?: string }) => (
+    <div>
+      <label className={editLabelClass}>{label}</label>
+      <input
+        type={type}
+        value={form[field]}
+        onChange={(e) => handleChange(field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
+        className={editInputClass}
+        placeholder={placeholder}
+      />
+      {errors[field] && <p className="text-red-500 text-xs mt-1">{errors[field]}</p>}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-[#1A5336] px-6 py-5 flex items-center gap-4 flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <Pencil size={18} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white truncate" style={{ fontWeight: 700 }}>Edit Alumni Record</h3>
+            <p className="text-white/70 text-sm">{record.name}</p>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="overflow-y-auto p-6 space-y-6">
+          {/* Personal */}
+          <div>
+            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Personal Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <InputField label="Full Name" field="name" placeholder="JUAN DELA CRUZ" />
+              </div>
+              <div>
+                <label className={editLabelClass}>Sex</label>
+                <select value={form.sex} onChange={(e) => handleChange("sex", e.target.value)} className={editSelectClass}>
+                  <option value="MALE">MALE</option>
+                  <option value="FEMALE">FEMALE</option>
+                </select>
+              </div>
+              <div>
+                <label className={editLabelClass}>Civil Status</label>
+                <select value={form.civil_status} onChange={(e) => handleChange("civil_status", e.target.value)} className={editSelectClass}>
+                  {["SINGLE", "MARRIED", "WIDOWED", "SEPARATED", "ANNULLED"].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <InputField label="Date of Birth" field="date_of_birth" type="date" />
+              <InputField label="Mobile No." field="mobile_no" placeholder="09xxxxxxxxx" />
+              <InputField label="Religion" field="religion" />
+              <InputField label="Email" field="email" type="email" />
+              <div className="md:col-span-2">
+                <InputField label="Address" field="address" />
+              </div>
+            </div>
+          </div>
+
+          {/* Education */}
+          <div>
+            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Educational Details</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InputField label="Year Graduated" field="year_graduated" placeholder="2024" />
+              <InputField label="Degree / Course" field="degree" />
+              <div>
+                <label className={editLabelClass}>Highest Attainment</label>
+                <select value={form.highest_attainment} onChange={(e) => handleChange("highest_attainment", e.target.value)} className={editSelectClass}>
+                  {["MASTER", "DOCTORATE", "N/A"].map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+              <InputField label="Eligibility" field="eligibility" />
+            </div>
+          </div>
+
+          {/* Employment */}
+          <div>
+            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Employment Data</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={editLabelClass}>Employment Status</label>
+                <select value={form.employment_status} onChange={(e) => handleChange("employment_status", e.target.value)} className={editSelectClass}>
+                  {["YES", "NO", "BUSINESS OWNER", "RETIRED"].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <InputField label="Employment Sector" field="employment_sector" />
+              <InputField label="Present Employment Status" field="present_employment_status" />
+              <InputField label="Occupation" field="occupation" />
+              <InputField label="Position" field="position" />
+              <InputField label="Year Employed" field="year_employed" />
+              <InputField label="Company / Organization" field="company" />
+              <InputField label="Company Address" field="company_address" />
+              <div className="md:col-span-2">
+                <InputField label="Location of Employment" field="location_of_employment" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-100 px-6 py-4 flex items-center justify-end gap-3 flex-shrink-0 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1A5336] text-white hover:bg-[#134026] text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+          >
+            <Save size={15} />
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({
+  record,
+  onClose,
+}: {
+  record: AlumniRecord;
+  onClose: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = () => {
+    setDeleting(true);
+    router.delete(
+      route('admin.alumni.destroy', { alumnus: record.id }),
+      {
+        onSuccess: () => onClose(),
+        onFinish: () => setDeleting(false),
+        preserveScroll: true,
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className="p-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={28} className="text-red-500" />
+          </div>
+          <h3 className="text-gray-900 mb-2" style={{ fontSize: "1.125rem", fontWeight: 700 }}>
+            Delete Alumni Record
+          </h3>
+          <p className="text-gray-500 text-sm mb-1">
+            Are you sure you want to delete the record for:
+          </p>
+          <p className="text-gray-800 font-semibold mb-4">{record.name}</p>
+          <p className="text-red-500 text-xs mb-6">
+            This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+            >
+              <Trash2 size={15} />
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
       </motion.div>
@@ -289,6 +581,8 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   const [page, setPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AlumniRecord | null>(null);
+  const [editRecord, setEditRecord] = useState<AlumniRecord | null>(null);
+  const [deleteRecord, setDeleteRecord] = useState<AlumniRecord | null>(null);
 
   // Filters
   const [filterSector, setFilterSector] = useState("");
@@ -806,13 +1100,29 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                               {r.campus}
                             </td>
                             <td className="px-4 py-3">
-                              <button
-                                onClick={() => setSelectedRecord(r)}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1A5336]/5 text-[#1A5336] hover:bg-[#1A5336]/10 transition-colors text-xs font-medium"
-                              >
-                                <Eye size={13} />
-                                View
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => setSelectedRecord(r)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1A5336]/5 text-[#1A5336] hover:bg-[#1A5336]/10 transition-colors text-xs font-medium"
+                                  title="View"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setEditRecord(r)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-medium"
+                                  title="Edit"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteRecord(r)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-xs font-medium"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -1149,6 +1459,10 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                     { school: 'PSC', count: analytics.schoolCounts.PSC ?? 0, color: '#FFB81C' },
                     { school: 'CHMSC', count: analytics.schoolCounts.CHMSC ?? 0, color: '#2563eb' },
                     { school: 'CHMSU', count: analytics.schoolCounts.CHMSU ?? 0, color: '#16a34a' },
+                    { school: 'NOCAT', count: analytics.schoolCounts.NOCAT ?? 0, color: '#9333ea' },
+                    { school: 'NOSAT', count: analytics.schoolCounts.NOSAT ?? 0, color: '#ea580c' },
+                    { school: 'NOPCC', count: analytics.schoolCounts.NOPCC ?? 0, color: '#0891b2' },
+                    { school: 'NOSOF', count: analytics.schoolCounts.NOSOF ?? 0, color: '#4f46e5' },
                   ].map((item) => (
                     <div
                       key={item.school}
@@ -1193,6 +1507,22 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
         <AlumniDetailModal
           record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editRecord && (
+        <AlumniEditModal
+          record={editRecord}
+          onClose={() => setEditRecord(null)}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteRecord && (
+        <DeleteConfirmModal
+          record={deleteRecord}
+          onClose={() => setDeleteRecord(null)}
         />
       )}
 

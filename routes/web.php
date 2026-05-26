@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AlumniController as AdminAlumniController;
 use App\Http\Controllers\Admin\AlumniExportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\StaffController;
@@ -19,6 +20,8 @@ Route::middleware(['auth', 'throttle:admin'])->prefix('admin')->name('admin.')->
     Route::get('/alumni/export', AlumniExportController::class)
         ->middleware('throttle:export')
         ->name('alumni.export');
+    Route::put('/alumni/{alumnus}', [AdminAlumniController::class, 'update'])->name('alumni.update');
+    Route::delete('/alumni/{alumnus}', [AdminAlumniController::class, 'destroy'])->name('alumni.destroy');
 
     Route::middleware('admin')->group(function () {
         Route::middleware('throttle:staff-write')->group(function () {

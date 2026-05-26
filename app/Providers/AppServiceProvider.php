@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,7 +21,18 @@ class AppServiceProvider extends ServiceProvider
     {
         Route::bind('staff', fn (string $value): User => User::query()->staff()->findOrFail($value));
 
+        $this->configurePasswordDefaults();
         $this->configureRateLimiting();
+    }
+
+    protected function configurePasswordDefaults(): void
+    {
+        Password::defaults(fn () => Password::min(10)
+            ->letters()
+            ->mixedCase()
+            ->numbers()
+            ->uncompromised()
+        );
     }
 
     protected function configureRateLimiting(): void
@@ -34,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('alumni-submit', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip());
+            return Limit::perMinute(3)->by($request->ip());
         });
 
         RateLimiter::for('admin', function (Request $request) {

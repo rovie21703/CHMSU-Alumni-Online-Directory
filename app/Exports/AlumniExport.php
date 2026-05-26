@@ -69,7 +69,7 @@ class AlumniExport implements FromQuery, WithHeadings, WithMapping
             'address' => $alumni->address,
             'school' => $alumni->school?->code,
             'campus' => $alumni->program?->campus?->name,
-            'degree' => $alumni->program?->name,
+            'degree' => $alumni->program?->name ?? $alumni->degree,
             'year_graduated' => $alumni->year_graduated,
             'highest_attainment' => $alumni->highest_attainment,
             'eligibility' => $alumni->eligibility,
@@ -80,6 +80,7 @@ class AlumniExport implements FromQuery, WithHeadings, WithMapping
             'position' => $alumni->position,
             'year_employed' => $alumni->year_employed,
             'company' => $alumni->company,
+            'company_address' => $alumni->company_address,
             'location_of_employment' => $this->formatEmploymentLocation($alumni->location_of_employment),
             default => null,
         };

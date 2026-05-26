@@ -29,6 +29,7 @@ class StoreAlumniRequest extends FormRequest
             'employmentSector' => 'employment_sector',
             'presentEmploymentStatus' => 'present_employment_status',
             'yearEmployed' => 'year_employed',
+            'companyAddress' => 'company_address',
             'locationOfEmployment' => 'location_of_employment',
             'consentGiven' => 'consent_given',
         ];
@@ -61,10 +62,16 @@ class StoreAlumniRequest extends FormRequest
             is_string($merged['school_attended'] ?? null) ? $merged['school_attended'] : null
         );
 
-        $merged['program_id'] = AlumniReferenceResolver::programId(
-            is_string($merged['campus'] ?? null) ? $merged['campus'] : null,
-            is_string($merged['degree'] ?? null) ? $merged['degree'] : null,
-        );
+        // If school is NOT CHMSU or CHMSC, keep program_id null (so we use the text degree field)
+        $schoolCode = $merged['school_attended'] ?? null;
+        if (in_array($schoolCode, ['CHMSU', 'CHMSC'])) {
+            $merged['program_id'] = AlumniReferenceResolver::programId(
+                is_string($merged['campus'] ?? null) ? $merged['campus'] : null,
+                is_string($merged['degree'] ?? null) ? $merged['degree'] : null,
+            );
+        } else {
+            $merged['program_id'] = null;
+        }
 
         $merged['birth_city_id'] = AlumniReferenceResolver::birthCityId(
             is_string($merged['birth_province'] ?? null) ? $merged['birth_province'] : null,
@@ -89,12 +96,18 @@ class StoreAlumniRequest extends FormRequest
             'date_of_birth' => ['required', 'date', 'before:today'],
             'birth_city_id' => ['required', 'integer', 'exists:cities,id', new ValidPhilippineBirthLocation],
             'mobile_no' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:12'],
-            'address' => ['required', 'string'],
+            'address' => ['required', 'string', 'max:1000'],
             'civil_status' => ['required', 'string', 'max:50'],
             'religion' => ['nullable', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255', 'unique:alumni,email'],
             'school_id' => ['required', 'integer', 'exists:schools,id'],
-            'program_id' => ['required', 'integer', 'exists:programs,id'],
+            'program_id' => [
+                Rule::requiredIf(in_array($this->input('school_attended'), ['CHMSU', 'CHMSC'])),
+                'nullable',
+                'integer',
+                'exists:programs,id',
+            ],
+            'degree' => ['nullable', 'string', 'max:255'],
             'year_graduated' => ['required', 'string', 'size:4'],
             'highest_attainment' => ['required', Rule::in(['MASTER', 'DOCTORATE', 'N/A'])],
             'eligibility' => ['nullable', 'string', 'max:255'],
@@ -106,7 +119,7 @@ class StoreAlumniRequest extends FormRequest
                 'max:100',
             ],
             'present_employment_status' => [
-                Rule::requiredIf($showEmploymentDetails),
+                Rule::requiredIf($isEmployed),
                 'nullable',
                 'string',
                 'max:100',
@@ -114,7 +127,18 @@ class StoreAlumniRequest extends FormRequest
             'occupation' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'year_employed' => ['nullable', 'string', 'size:4'],
-            'company' => ['nullable', 'string'],
+            'company' => [
+                Rule::requiredIf($this->input('employment_status') === 'BUSINESS OWNER'),
+                'nullable',
+                'string',
+                'max:500',
+            ],
+            'company_address' => [
+                Rule::requiredIf($this->input('employment_status') === 'BUSINESS OWNER'),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
             'location_of_employment' => ['nullable', 'string', 'max:255'],
         ];
     }

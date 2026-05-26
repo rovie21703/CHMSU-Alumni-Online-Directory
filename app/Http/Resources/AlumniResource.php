@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Alumni;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\Alumni */
+/** @mixin Alumni */
 class AlumniResource extends JsonResource
 {
     /**
@@ -35,7 +36,7 @@ class AlumniResource extends JsonResource
             'schoolAttended' => $this->school?->code ?? '',
             'yearGraduated' => $this->year_graduated,
             'campus' => $this->program?->campus?->name ?? '',
-            'degree' => $this->program?->name ?? '',
+            'degree' => $this->program?->name ?? $this->degree ?? '',
             'highestAttainment' => $this->highest_attainment,
             'eligibility' => $this->eligibility ?? '',
             'employmentStatus' => $this->employment_status,
@@ -45,6 +46,7 @@ class AlumniResource extends JsonResource
             'position' => $this->position ?? '',
             'yearEmployed' => $this->year_employed ?? '',
             'company' => $this->company ?? '',
+            'companyAddress' => $this->company_address ?? '',
             'locationOfEmployment' => $this->location_of_employment ?? '',
         ];
     }

@@ -3,18 +3,20 @@
 namespace App\Models;
 
 use App\Policies\AlumniPolicy;
+use Database\Factories\AlumniFactory;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[UsePolicy(AlumniPolicy::class)]
 class Alumni extends Model
 {
-    /** @use HasFactory<\Database\Factories\AlumniFactory> */
-    use HasFactory;
+    /** @use HasFactory<AlumniFactory> */
+    use HasFactory, SoftDeletes;
 
     protected $table = 'alumni';
 
@@ -35,6 +37,7 @@ class Alumni extends Model
         'email',
         'school_id',
         'program_id',
+        'degree',
         'year_graduated',
         'highest_attainment',
         'eligibility',
@@ -45,6 +48,7 @@ class Alumni extends Model
         'position',
         'year_employed',
         'company',
+        'company_address',
         'location_of_employment',
     ];
 
@@ -108,9 +112,20 @@ class Alumni extends Model
             return $query->whereRaw('0 = 1');
         }
 
-        return $query->whereHas(
-            'program',
-            fn (Builder $programQuery) => $programQuery->where('campus_id', $user->campus_id)
-        );
+        return $query->where(function (Builder $q) use ($user) {
+            // Alumni with a program linked to the user's campus
+            $q->whereHas(
+                'program',
+                fn (Builder $programQuery) => $programQuery->where('campus_id', $user->campus_id)
+            )
+            // Alumni without a program (non-CHMSU/CHMSC schools) linked via school's campus
+                ->orWhere(function (Builder $q2) use ($user) {
+                    $q2->whereNull('program_id')
+                        ->whereHas(
+                            'school',
+                            fn (Builder $schoolQuery) => $schoolQuery->where('campus_id', $user->campus_id)
+                        );
+                });
+        });
     }
 }

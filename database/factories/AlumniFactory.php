@@ -51,7 +51,8 @@ class AlumniFactory extends Factory
             'occupation' => $isEmployed ? strtoupper(fake()->jobTitle()) : null,
             'position' => $isEmployed ? strtoupper(fake()->jobTitle()) : null,
             'year_employed' => $isEmployed ? (string) fake()->numberBetween(2010, (int) date('Y')) : null,
-            'company' => $isEmployed ? strtoupper(fake()->company()).', '.strtoupper(fake()->city()) : null,
+            'company' => $isEmployed ? strtoupper(fake()->company()) : null,
+            'company_address' => $isEmployed ? strtoupper(fake()->address()) : null,
             'location_of_employment' => $isEmployed
                 ? fake()->randomElement([
                     'EMPLOYED LOCALLY, INCLUDING THOSE WITH FOREIGN EMPLOYERS IN THE PHILIPPINES',

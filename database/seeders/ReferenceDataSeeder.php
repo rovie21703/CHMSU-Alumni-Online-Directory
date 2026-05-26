@@ -25,6 +25,10 @@ class ReferenceDataSeeder extends Seeder
             ['code' => 'PSC', 'name' => 'Philippine School of Commerce'],
             ['code' => 'CHMSC', 'name' => 'Carlos Hilado Memorial State College'],
             ['code' => 'CHMSU', 'name' => 'Carlos Hilado Memorial State University'],
+            ['code' => 'NOCAT', 'name' => 'Negros Occidental College of Arts and Trades'],
+            ['code' => 'NOSAT', 'name' => 'Negros Occidental School of Arts and Trades'],
+            ['code' => 'NOPCC', 'name' => 'Negros Occidental Provincial Community College'],
+            ['code' => 'NOSOF', 'name' => 'Negros Occidental School of Fisheries'],
         ];
 
         foreach ($schools as $school) {
