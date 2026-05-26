@@ -1,10 +1,10 @@
-# 🎓 Carlos Hilado Memorial State University (CHMSU) - Alumni Online Directory
+# Carlos Hilado Memorial State University (CHMSU) - Alumni Online Directory
 
 A modern, secure, and user-friendly web portal for CHMSU to register, search, track, and manage alumni records. The system utilizes a multi-campus tenant architecture where administrators can oversee all records and staff, while campus-scoped staff can only access and manage records pertaining to their specific campus.
 
 ---
 
-## 🚀 Technology Stack
+## Technology Stack
 
 The application is built on top of the following modern technologies:
 - **Backend Framework**: [Laravel 12](file:///home/rovie/CHMSU-Alumni-Online-Directory/composer.json)
@@ -16,26 +16,8 @@ The application is built on top of the following modern technologies:
 
 ---
 
-## ✨ Key Features
 
-1. **Multi-Step Alumni Intake Form**:
-   - Dynamic validation logic based on the selected campus, school, and degree/course.
-   - Clean conditional sections (e.g., custom input fields for degree/course under specific non-CHMSU schools; tailored employment details for business owners).
-2. **Role-Based Access Control & Multi-Campus Tenant Scoping**:
-   - **Administrators**: Complete system access, staff management, and all alumni records.
-   - **Staff Users**: Access limited exclusively to alumni from their designated campus.
-3. **Data Exporting**:
-   - Secure Excel exporting of alumni records scoped by user permissions.
-4. **Hardened Security**:
-   - Session encryption for data at rest.
-   - Advanced rate-limiting for public and admin operations.
-   - Global security headers middleware (HSTS, CSP-friendly headers, clickjacking protection).
-   - Robust password policies (min 10 characters, mixed case, numbers, symbols, uncompromised check).
-   - CSRF token rotation on login/logout.
-
----
-
-## 💻 Local Development Setup
+## Local Development Setup
 
 Follow these steps to set up the application in a local development environment.
 
@@ -99,7 +81,7 @@ Ensure you have the following installed on your machine:
 
 ---
 
-## 🔑 Default Credentials
+## Default Credentials
 
 After database seeding, you can log in to the admin panel using the following credentials:
 
@@ -111,7 +93,7 @@ After database seeding, you can log in to the admin panel using the following cr
 
 ---
 
-## 🧪 Testing & Code Quality
+## Testing & Code Quality
 
 ### Running Tests
 The project uses **Pest** for automated unit and feature testing:
@@ -138,7 +120,7 @@ npm run build
 
 ---
 
-## 🛡️ Production Deployment Guide
+## Production Deployment Guide
 
 When deploying to a production server (such as VPS, Laravel Cloud, or AWS), make sure to complete this checklist for performance and security.
 
