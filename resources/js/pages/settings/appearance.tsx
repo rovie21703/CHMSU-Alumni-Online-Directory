@@ -21,7 +21,10 @@ export default function Appearance() {
 
             <SettingsLayout>
                 <div className="space-y-6">
-                    <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
+                    <HeadingSmall
+                        title="Appearance"
+                        description="The application uses light mode only and is not affected by your device theme."
+                    />
                     <AppearanceTabs />
                 </div>
             </SettingsLayout>

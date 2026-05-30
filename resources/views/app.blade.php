@@ -1,8 +1,17 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" style="color-scheme: light;">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
+        <script>
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+
+            try {
+                localStorage.setItem('appearance', 'light');
+            } catch (e) {}
+        </script>
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
