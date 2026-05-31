@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\FormProtection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -50,4 +51,13 @@ expect()->extend('toBeOne', function () {
 function testPassword(): string
 {
     return 'Password1test!';
+}
+
+/**
+ * @param  array<string, mixed>  $payload
+ * @return array<string, mixed>
+ */
+function withFormProtection(array $payload = [], ?int $elapsedSeconds = null): array
+{
+    return array_merge($payload, FormProtection::validSubmissionFields($elapsedSeconds));
 }

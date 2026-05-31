@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { type BreadcrumbItem } from '@/types';
@@ -10,6 +11,7 @@ import HeadingSmall from '@/components/heading-small';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -21,8 +23,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function Password() {
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    const { fields: protectionFields } = useFormProtection();
 
     const { data, setData, errors, put, reset, processing, recentlySuccessful } = useForm({
+        ...protectionFields,
         current_password: '',
         password: '',
         password_confirmation: '',
@@ -57,6 +61,7 @@ export default function Password() {
                     <HeadingSmall title="Update password" description="Ensure your account is using a long, random password to stay secure" />
 
                     <form onSubmit={updatePassword} className="space-y-6">
+                        <FormProtectionFields />
                         <div className="grid gap-2">
                             <Label htmlFor="current_password">Current password</Label>
 

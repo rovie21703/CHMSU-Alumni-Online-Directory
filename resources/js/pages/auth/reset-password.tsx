@@ -3,10 +3,12 @@ import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 interface ResetPasswordProps {
     token: string;
@@ -21,7 +23,9 @@ interface ResetPasswordForm {
 }
 
 export default function ResetPassword({ token, email }: ResetPasswordProps) {
+    const { fields: protectionFields } = useFormProtection();
     const { data, setData, post, processing, errors, reset } = useForm<ResetPasswordForm>({
+        ...protectionFields,
         token: token,
         email: email,
         password: '',
@@ -40,6 +44,7 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
             <Head title="Reset password" />
 
             <form onSubmit={submit}>
+                <FormProtectionFields />
                 <div className="grid gap-6">
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>

@@ -3,10 +3,10 @@ import { AlertCircle, Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 import { FormEventHandler, useState } from 'react';
 
+import { BrandLogos } from '@/components/brand-logos';
 import InputError from '@/components/input-error';
-import { ChmsuLogo } from '@/components/chmsu-logo';
-
-import alumniLogo from '@/assets/images/alumni-logo.jfif';
+import { FormProtectionFields } from '@/components/form-protection-fields';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 interface LoginProps {
     status?: string;
@@ -14,7 +14,9 @@ interface LoginProps {
 
 export default function AdminLogin({ status }: LoginProps) {
     const [showPassword, setShowPassword] = useState(false);
+    const { fields: protectionFields } = useFormProtection();
     const { data, setData, post, processing, errors, reset } = useForm({
+        ...protectionFields,
         email: '',
         password: '',
         remember: false,
@@ -66,12 +68,7 @@ export default function AdminLogin({ status }: LoginProps) {
 
         <div className="relative z-10 text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-32 h-32 rounded-full bg-white p-2 shadow-xl">
-              <ChmsuLogo className="w-full h-full object-contain rounded-full" />
-            </div>
-            <div className="w-32 h-32 rounded-full bg-white p-2 shadow-xl">
-              <img src={alumniLogo} alt="Alumni Logo" className="w-full h-full object-contain rounded-full" />
-            </div>
+            <BrandLogos size="hero" />
           </div>
           <div className="w-16 h-1 bg-[#FFB81C] mx-auto mb-6 rounded-full" />
           <h1 className="text-white mb-4" style={{ fontSize: "1.75rem", fontWeight: 800 }}>
@@ -101,14 +98,8 @@ export default function AdminLogin({ status }: LoginProps) {
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center justify-center gap-2 mb-8">
-            <div className="w-20 h-20 rounded-full bg-white shadow-md p-1.5">
-              <ChmsuLogo className="w-full h-full object-contain rounded-full" />
-            </div>
-            <div className="w-20 h-20 rounded-full bg-white shadow-md p-1.5">
-              <img src={alumniLogo} alt="Alumni Logo" className="w-full h-full object-contain rounded-full" />
-            </div>
+          <div className="flex lg:hidden items-center justify-center mb-8">
+            <BrandLogos size="lg" />
           </div>
 
           <div className="mb-8">
@@ -145,6 +136,7 @@ export default function AdminLogin({ status }: LoginProps) {
           )}
 
           <form onSubmit={submit} className="space-y-5">
+            <FormProtectionFields />
             {/* Username */}
             <div>
               <label className="mb-2 block text-sm text-gray-700" htmlFor="email">Email</label>

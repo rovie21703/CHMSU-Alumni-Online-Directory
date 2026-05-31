@@ -3,9 +3,11 @@ import { FormEventHandler, useRef } from 'react';
 
 // Components...
 import InputError from '@/components/input-error';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 import HeadingSmall from '@/components/heading-small';
 
@@ -13,7 +15,11 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 
 export default function DeleteUser() {
     const passwordInput = useRef<HTMLInputElement>(null);
-    const { data, setData, delete: destroy, processing, reset, errors, clearErrors } = useForm({ password: '' });
+    const { fields: protectionFields } = useFormProtection();
+    const { data, setData, delete: destroy, processing, reset, errors, clearErrors } = useForm({
+        ...protectionFields,
+        password: '',
+    });
 
     const deleteUser: FormEventHandler = (e) => {
         e.preventDefault();
@@ -51,6 +57,7 @@ export default function DeleteUser() {
                             to confirm you would like to permanently delete your account.
                         </DialogDescription>
                         <form className="space-y-6" onSubmit={deleteUser}>
+                            <FormProtectionFields />
                             <div className="grid gap-2">
                                 <Label htmlFor="password" className="sr-only">
                                     Password

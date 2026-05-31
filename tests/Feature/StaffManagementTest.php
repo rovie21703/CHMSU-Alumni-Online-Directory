@@ -36,13 +36,13 @@ test('admin can create staff member', function () {
     $campus = Campus::query()->first();
 
     $this->actingAs($admin)
-        ->post(route('admin.staff.store'), [
+        ->post(route('admin.staff.store'), withFormProtection([
             'name' => 'Talisay Staff',
             'email' => 'staff.talisay@chmsu.edu.ph',
             'password' => testPassword(),
             'password_confirmation' => testPassword(),
             'campus_id' => $campus->id,
-        ])
+        ]))
         ->assertRedirect(route('admin.staff.index'))
         ->assertSessionHas('success');
 
@@ -59,13 +59,13 @@ test('admin can update staff member', function () {
     $campus = Campus::query()->where('id', '!=', $staff->campus_id)->first();
 
     $this->actingAs($admin)
-        ->put(route('admin.staff.update', $staff), [
+        ->put(route('admin.staff.update', $staff), withFormProtection([
             'name' => 'Updated Staff Name',
             'email' => 'updated.staff@chmsu.edu.ph',
             'password' => '',
             'password_confirmation' => '',
             'campus_id' => $campus->id,
-        ])
+        ]))
         ->assertRedirect(route('admin.staff.index'));
 
     $staff->refresh();
@@ -80,7 +80,7 @@ test('admin can delete staff member', function () {
     $staff = User::factory()->staff()->create();
 
     $this->actingAs($admin)
-        ->delete(route('admin.staff.destroy', $staff))
+        ->delete(route('admin.staff.destroy', $staff), withFormProtection())
         ->assertRedirect(route('admin.staff.index'));
 
     $this->assertDatabaseMissing('users', ['id' => $staff->id]);
@@ -99,13 +99,13 @@ test('staff user cannot create staff members', function () {
     $campus = Campus::query()->first();
 
     $this->actingAs($staffUser)
-        ->post(route('admin.staff.store'), [
+        ->post(route('admin.staff.store'), withFormProtection([
             'name' => 'Blocked Staff',
             'email' => 'blocked@chmsu.edu.ph',
             'password' => 'password',
             'password_confirmation' => 'password',
             'campus_id' => $campus->id,
-        ])
+        ]))
         ->assertForbidden();
 });
 

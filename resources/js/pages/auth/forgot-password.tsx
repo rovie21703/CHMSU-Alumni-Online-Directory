@@ -5,13 +5,17 @@ import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 export default function ForgotPassword({ status }: { status?: string }) {
+    const { fields: protectionFields } = useFormProtection();
     const { data, setData, post, processing, errors } = useForm({
+        ...protectionFields,
         email: '',
     });
 
@@ -29,6 +33,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
             <div className="space-y-6">
                 <form onSubmit={submit}>
+                    <FormProtectionFields />
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email address</Label>
                         <Input

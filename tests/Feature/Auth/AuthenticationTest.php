@@ -11,10 +11,10 @@ test('login screen can be rendered', function () {
 test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
 
-    $response = $this->post('/login', [
+    $response = $this->post('/login', withFormProtection([
         'email' => $user->email,
         'password' => 'password',
-    ]);
+    ]));
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('admin.dashboard', absolute: false));
@@ -23,10 +23,10 @@ test('users can authenticate using the login screen', function () {
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
-    $this->post('/login', [
+    $this->post('/login', withFormProtection([
         'email' => $user->email,
         'password' => 'wrong-password',
-    ]);
+    ]));
 
     $this->assertGuest();
 });

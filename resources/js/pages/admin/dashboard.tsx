@@ -8,6 +8,7 @@ import { CAMPUS_PROGRAMS } from '@/data/campus-programs';
 import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
 import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
 import { useCompactViewport } from '@/hooks/use-compact-viewport';
+import { useFormProtection } from '@/hooks/use-form-protection';
 import { fetchAlumniRecord } from '@/lib/fetch-alumni-record';
 import { resolveBirthPlaceFields, resolveReligionField } from '@/lib/birth-place-fields';
 import {
@@ -57,12 +58,10 @@ import {
 } from "lucide-react";
 import { AlumniExportDialog } from '@/components/admin/alumni-export-dialog';
 import { AlumniRecordCard } from '@/components/admin/alumni-record-card';
-import { ChmsuLogo } from '@/components/chmsu-logo';
+import { BrandLogos } from '@/components/brand-logos';
 import type { AlumniRecord } from '@/types/alumni';
 import type { ExportOptions } from '@/types/export';
 import type { SharedData } from '@/types';
-
-import alumniLogo from '@/assets/images/alumni-logo.jfif';
 
 const MAROON = "#1A5336";
 const GOLD = "#FFB81C";
@@ -434,6 +433,7 @@ function AlumniEditModal({
   record: AlumniRecord;
   onClose: () => void;
 }) {
+  const { merge: mergeFormProtection } = useFormProtection();
   const initialBirth = resolveBirthPlaceFields(record.birthProvince, record.birthCity);
   const initialReligion = resolveReligionField(record.religion);
 
@@ -508,7 +508,7 @@ function AlumniEditModal({
     setSaving(true);
     router.put(
       route('admin.alumni.update', { alumnus: record.id }),
-      form,
+      mergeFormProtection(form),
       {
         onSuccess: () => onClose(),
         onError: (errs) => {
@@ -1001,12 +1001,14 @@ function DeleteConfirmModal({
   onClose: () => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const { merge: mergeFormProtection } = useFormProtection();
 
   const handleDelete = () => {
     setDeleting(true);
     router.delete(
       route('admin.alumni.destroy', { alumnus: record.id }),
       {
+        data: mergeFormProtection({}),
         onSuccess: () => onClose(),
         onFinish: () => setDeleting(false),
         preserveScroll: true,
@@ -1284,14 +1286,7 @@ export default function AdminDashboard({
 
         {/* Logo */}
         <div className="flex items-center gap-3 p-5 border-b border-white/10">
-          <div className="flex items-center gap-1.5">
-            <div className="w-10 h-10 rounded-full bg-white p-0.5 flex-shrink-0">
-              <ChmsuLogo className="w-full h-full object-contain rounded-full" />
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white p-0.5 flex-shrink-0">
-              <img src={alumniLogo} alt="Alumni Logo" className="w-full h-full object-contain rounded-full" />
-            </div>
-          </div>
+          <BrandLogos size="sm" />
           <div className="min-w-0">
             <p className="text-sm font-bold text-white">CHMSU</p>
             <p className="text-xs text-white/60">Alumni Directory</p>

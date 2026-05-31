@@ -17,10 +17,10 @@ test('profile information can be updated', function () {
 
     $response = $this
         ->actingAs($user)
-        ->patch('/settings/profile', [
+        ->patch('/settings/profile', withFormProtection([
             'name' => 'Test User',
             'email' => 'test@example.com',
-        ]);
+        ]));
 
     $response
         ->assertSessionHasNoErrors()
@@ -38,10 +38,10 @@ test('email verification status is unchanged when the email address is unchanged
 
     $response = $this
         ->actingAs($user)
-        ->patch('/settings/profile', [
+        ->patch('/settings/profile', withFormProtection([
             'name' => 'Test User',
             'email' => $user->email,
-        ]);
+        ]));
 
     $response
         ->assertSessionHasNoErrors()
@@ -55,9 +55,9 @@ test('user can delete their account', function () {
 
     $response = $this
         ->actingAs($user)
-        ->delete('/settings/profile', [
+        ->delete('/settings/profile', withFormProtection([
             'password' => 'password',
-        ]);
+        ]));
 
     $response
         ->assertSessionHasNoErrors()
@@ -73,9 +73,9 @@ test('correct password must be provided to delete account', function () {
     $response = $this
         ->actingAs($user)
         ->from('/settings/profile')
-        ->delete('/settings/profile', [
+        ->delete('/settings/profile', withFormProtection([
             'password' => 'wrong-password',
-        ]);
+        ]));
 
     $response
         ->assertSessionHasErrors('password')

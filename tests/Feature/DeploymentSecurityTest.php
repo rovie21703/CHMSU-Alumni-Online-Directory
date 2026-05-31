@@ -11,6 +11,11 @@ test('public deploy helper scripts are not shipped', function () {
     expect(file_exists(public_path('setup-storage.php')))->toBeFalse();
 });
 
+test('brand logo assets are shipped in public directory', function () {
+    expect(file_exists(public_path('images/chmsu-logo.jpg')))->toBeTrue();
+    expect(file_exists(public_path('images/alumni-logo.jpg')))->toBeTrue();
+});
+
 test('public registration is disabled by default', function () {
     config(['security.allow_registration' => false]);
 
@@ -23,16 +28,16 @@ test('login is rate limited after repeated failures', function () {
     $user = User::factory()->admin()->create();
 
     for ($attempt = 0; $attempt < 5; $attempt++) {
-        $this->post('/login', [
+        $this->post('/login', withFormProtection([
             'email' => $user->email,
             'password' => 'wrong-password',
-        ]);
+        ]));
     }
 
-    $this->post('/login', [
+    $this->post('/login', withFormProtection([
         'email' => $user->email,
         'password' => 'wrong-password',
-    ])->assertStatus(429);
+    ]))->assertStatus(429);
 });
 
 test('staff only sees alumni from their assigned campus', function () {

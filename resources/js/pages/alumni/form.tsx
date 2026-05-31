@@ -17,16 +17,16 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { ConsentModal } from '@/components/alumni/consent-modal';
-import { ChmsuLogo } from '@/components/chmsu-logo';
+import { BrandLogoStack, BrandLogos } from '@/components/brand-logos';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { SearchableSelect } from '@/components/searchable-select';
 import { CAMPUSES, CAMPUS_SCHOOLS } from '@/data/campus-schools';
 import { CAMPUS_PROGRAMS } from '@/data/campus-programs';
 import { GRADUATION_YEAR_START, graduationYearOptions } from '@/data/graduation-years';
 import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
 import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
+import { useFormProtection } from '@/hooks/use-form-protection';
 import type { SharedData } from '@/types';
-
-import alumniLogo from '@/assets/images/alumni-logo.jfif';
 
 type FormData = {
   name: string;
@@ -154,6 +154,7 @@ function RadioOption({
 
 export default function AlumniForm() {
   const { flash } = usePage<SharedData & { flash: { success?: boolean } }>().props;
+  const { merge: mergeFormProtection } = useFormProtection();
   const [currentStep, setCurrentStep] = useState(1);
   const [showConsent, setShowConsent] = useState(false);
   const [pendingData, setPendingData] = useState<FormData | null>(null);
@@ -263,11 +264,11 @@ export default function AlumniForm() {
     setIsSubmitting(true);
     router.post(
       route('alumni.store'),
-      {
+      mergeFormProtection({
         ...pendingData,
         schoolAttended,
         consentGiven: true,
-      },
+      }),
       {
         onSuccess: () => {
           setShowConsent(false);
@@ -307,10 +308,7 @@ export default function AlumniForm() {
               Thank you for registering in the CHMSU Alumni Online Directory. Your information has
               been recorded successfully.
             </p>
-            <div className="mx-auto mb-4 flex justify-center gap-3">
-              <ChmsuLogo className="w-20 h-20 object-contain rounded-full" />
-              <img src={alumniLogo} alt="Alumni Logo" className="w-20 h-20 object-contain rounded-full" />
-            </div>
+            <BrandLogoStack className="mx-auto mb-4" />
             <p className="text-[#1A5336] text-sm font-semibold">
               Carlos Hilado Memorial State University
             </p>
@@ -340,10 +338,7 @@ export default function AlumniForm() {
         {/* Navbar */}
         <nav className="bg-[#1A5336] border-b-4 border-[#FFB81C]" style={{ boxShadow: "inset 0 -8px 0 -4px #0033A0" }}>
           <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 min-w-0">
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <ChmsuLogo className="w-10 h-10 object-contain rounded-full bg-white p-0.5" />
-              <img src={alumniLogo} alt="Alumni Logo" className="w-10 h-10 object-contain rounded-full bg-white p-0.5" />
-            </div>
+            <BrandLogos size="sm" />
             <div className="min-w-0">
               <p className="text-white text-sm font-semibold leading-tight truncate">CHMSU Alumni Online Directory</p>
               <p className="text-white/70 text-xs leading-tight truncate">Carlos Hilado Memorial State University</p>
@@ -354,14 +349,7 @@ export default function AlumniForm() {
         {/* Form */}
         <div className="max-w-4xl mx-auto px-4 py-6 sm:py-10">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            <input
-              type="text"
-              name="website"
-              tabIndex={-1}
-              autoComplete="off"
-              className="absolute -left-[9999px] h-0 w-0 opacity-0"
-              aria-hidden="true"
-            />
+            <FormProtectionFields />
             {/* ======= PERSONAL INFORMATION ======= */}
             {currentStep === 1 && (
               <motion.div

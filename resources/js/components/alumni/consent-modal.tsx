@@ -1,9 +1,7 @@
 import { motion } from 'motion/react';
 import { CheckCircle, X, XCircle } from 'lucide-react';
 
-import { ChmsuLogo } from '@/components/chmsu-logo';
-
-import alumniLogo from '@/assets/images/alumni-logo.jfif';
+import { BrandLogos } from '@/components/brand-logos';
 
 interface ConsentModalProps {
     onAccept: () => void;
@@ -28,14 +26,7 @@ export function ConsentModal({ onAccept, onDisagree, isSubmitting = false }: Con
                 className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
             >
                 <div className="flex items-center gap-3 bg-[#1A5336] px-6 py-5">
-                    <motion.div className="flex flex-shrink-0 items-center gap-1.5">
-                        <div className="h-9 w-9 rounded-full bg-white p-0.5">
-                            <ChmsuLogo className="h-full w-full rounded-full object-contain" />
-                        </div>
-                        <motion.div className="h-9 w-9 rounded-full bg-white p-0.5">
-                            <img src={alumniLogo} alt="Alumni Logo" className="h-full w-full rounded-full object-contain" />
-                        </motion.div>
-                    </motion.div>
+                    <BrandLogos size="md" />
                     <div>
                         <h2 className="text-white" style={{ fontSize: '1.125rem', fontWeight: 700 }}>
                             Data Privacy Consent

@@ -4,11 +4,14 @@ import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import TextLink from '@/components/text-link';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 export default function VerifyEmail({ status }: { status?: string }) {
-    const { post, processing } = useForm({});
+    const { fields: protectionFields } = useFormProtection();
+    const { post, processing } = useForm(protectionFields);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -27,6 +30,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
             )}
 
             <form onSubmit={submit} className="space-y-6 text-center">
+                <FormProtectionFields />
                 <Button disabled={processing} variant="secondary">
                     {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                     Resend verification email

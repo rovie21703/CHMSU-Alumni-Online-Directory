@@ -32,14 +32,16 @@ class SecurityHeaders
 
     private function contentSecurityPolicy(): string
     {
+        $viteHosts = $this->viteDevHosts();
+
         if (app()->environment('local')) {
             return implode('; ', [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://127.0.0.1:5173 http://localhost:5173",
-                "style-src 'self' 'unsafe-inline' https://fonts.bunny.net http://127.0.0.1:5173 http://localhost:5173",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteHosts}",
+                "style-src 'self' 'unsafe-inline' https://fonts.bunny.net {$viteHosts}",
                 "font-src 'self' https://fonts.bunny.net data:",
-                "img-src 'self' data: blob:",
-                "connect-src 'self' http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173",
+                "img-src 'self' data: blob: {$viteHosts}",
+                "connect-src 'self' {$viteHosts} ws://127.0.0.1:5173 ws://localhost:5173",
             ]);
         }
 
@@ -54,5 +56,21 @@ class SecurityHeaders
             "base-uri 'self'",
             "form-action 'self'",
         ]);
+    }
+
+    private function viteDevHosts(): string
+    {
+        $hosts = [
+            'http://127.0.0.1:5173',
+            'http://localhost:5173',
+        ];
+
+        $configuredHost = env('VITE_HMR_HOST');
+
+        if (is_string($configuredHost) && $configuredHost !== '') {
+            $hosts[] = "http://{$configuredHost}:5173";
+        }
+
+        return implode(' ', array_unique($hosts));
     }
 }

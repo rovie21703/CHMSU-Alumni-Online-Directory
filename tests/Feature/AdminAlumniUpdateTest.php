@@ -62,7 +62,7 @@ function validAdminUpdatePayload(Alumni $alumni): array
 {
     $alumni->loadMissing(['school', 'program.campus', 'birthCity.province']);
 
-    return [
+    return withFormProtection([
         'name' => $alumni->name,
         'sex' => $alumni->sex,
         'date_of_birth' => $alumni->date_of_birth->format('Y-m-d'),
@@ -91,5 +91,5 @@ function validAdminUpdatePayload(Alumni $alumni): array
         'company' => $alumni->company ?? 'ACME CORP',
         'company_address' => $alumni->company_address ?? '123 MAIN ST',
         'location_of_employment' => $alumni->location_of_employment,
-    ];
+    ]);
 }

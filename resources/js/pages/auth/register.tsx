@@ -4,10 +4,12 @@ import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { useFormProtection } from '@/hooks/use-form-protection';
 
 interface RegisterForm {
     name: string;
@@ -17,7 +19,9 @@ interface RegisterForm {
 }
 
 export default function Register() {
+    const { fields: protectionFields } = useFormProtection();
     const { data, setData, post, processing, errors, reset } = useForm<RegisterForm>({
+        ...protectionFields,
         name: '',
         email: '',
         password: '',
@@ -35,6 +39,7 @@ export default function Register() {
         <AuthLayout title="Create an account" description="Enter your details below to create your account">
             <Head title="Register" />
             <form className="flex flex-col gap-6" onSubmit={submit}>
+                <FormProtectionFields />
                 <div className="grid gap-6">
                     <div className="grid gap-2">
                         <Label htmlFor="name">Name</Label>

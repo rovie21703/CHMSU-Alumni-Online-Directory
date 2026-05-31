@@ -3,6 +3,7 @@ import { ArrowLeft, Pencil, Plus, Shield, Trash2, UserCog } from 'lucide-react';
 import { useState } from 'react';
 
 import InputError from '@/components/input-error';
+import { FormProtectionFields } from '@/components/form-protection-fields';
 import {
     Dialog,
     DialogContent,
@@ -12,6 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useFormProtection } from '@/hooks/use-form-protection';
 import type { SharedData } from '@/types';
 
 const MAROON = '#1A5336';
@@ -53,11 +55,12 @@ const emptyForm: StaffFormData = {
 
 export default function StaffIndex({ staff, campuses }: StaffIndexProps) {
     const { flash } = usePage<SharedData & { flash?: { success?: string } }>().props;
+    const { fields: protectionFields, merge: mergeFormProtection } = useFormProtection();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
     const [deletingStaff, setDeletingStaff] = useState<StaffMember | null>(null);
 
-    const form = useForm<StaffFormData>(emptyForm);
+    const form = useForm<StaffFormData>({ ...protectionFields, ...emptyForm });
 
     const openCreate = () => {
         setEditingStaff(null);
@@ -89,10 +92,10 @@ export default function StaffIndex({ staff, campuses }: StaffIndexProps) {
     const submit: FormEventHandler = (event) => {
         event.preventDefault();
 
-        const payload = {
+        const payload = mergeFormProtection({
             ...form.data,
             campus_id: Number(form.data.campus_id),
-        };
+        });
 
         if (editingStaff) {
             router.put(route('admin.staff.update', editingStaff.id), payload, {
@@ -114,6 +117,7 @@ export default function StaffIndex({ staff, campuses }: StaffIndexProps) {
         }
 
         router.delete(route('admin.staff.destroy', deletingStaff.id), {
+            data: mergeFormProtection({}),
             preserveScroll: true,
             onSuccess: () => setDeletingStaff(null),
         });
@@ -240,6 +244,7 @@ export default function StaffIndex({ staff, campuses }: StaffIndexProps) {
                         </DialogHeader>
 
                         <form onSubmit={submit} className="space-y-4">
+                            <FormProtectionFields />
                             <div>
                                 <Label htmlFor="name">Full name</Label>
                                 <input

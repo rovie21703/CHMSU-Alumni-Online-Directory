@@ -25,6 +25,10 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    formProtection: {
+        honeypotField: string;
+        formStartedAt: string;
+    };
     [key: string]: unknown;
 }
 

@@ -2,6 +2,7 @@
 
 use App\Models\Alumni;
 use App\Support\AlumniReferenceResolver;
+use App\Support\FormProtection;
 
 test('reference resolver maps birth location and program', function () {
     expect(AlumniReferenceResolver::birthCityId('NEGROS OCCIDENTAL', 'CITY OF BAGO'))->not->toBeNull();
@@ -10,6 +11,13 @@ test('reference resolver maps birth location and program', function () {
 
 test('alumni registration form can be rendered', function () {
     $this->get(route('alumni.create'))->assertSuccessful();
+});
+
+test('alumni submission rejects submissions that are too fast', function () {
+    $payload = validAlumniPayload();
+    $payload['form_started_at'] = FormProtection::timingToken();
+
+    $this->post(route('alumni.store'), $payload)->assertSessionHasErrors('form_started_at');
 });
 
 test('alumni submission rejects honeypot field', function () {
@@ -87,7 +95,7 @@ test('alumni submission requires consent', function () {
 });
 
 test('alumni submission validates required fields', function () {
-    $this->post(route('alumni.store'), [])->assertSessionHasErrors([
+    $this->post(route('alumni.store'), withFormProtection([]))->assertSessionHasErrors([
         'name',
         'school_id',
         'birth_city_id',
@@ -145,7 +153,7 @@ test('alumni submission rejects duplicate email addresses', function () {
  */
 function validAlumniPayload(): array
 {
-    return [
+    return withFormProtection([
         'consent_given' => true,
         'name' => 'JUAN DELA CRUZ',
         'sex' => 'MALE',
@@ -171,5 +179,5 @@ function validAlumniPayload(): array
         'year_employed' => '2018',
         'company' => 'ACME CORP, BACOLOD CITY',
         'location_of_employment' => 'EMPLOYED LOCALLY, INCLUDING THOSE WITH FOREIGN EMPLOYERS IN THE PHILIPPINES',
-    ];
+    ]);
 }

@@ -9,11 +9,11 @@ test('password can be updated', function () {
     $response = $this
         ->actingAs($user)
         ->from('/settings/password')
-        ->put('/settings/password', [
+        ->put('/settings/password', withFormProtection([
             'current_password' => 'password',
             'password' => testPassword(),
             'password_confirmation' => testPassword(),
-        ]);
+        ]));
 
     $response
         ->assertSessionHasNoErrors()
@@ -28,11 +28,11 @@ test('correct password must be provided to update password', function () {
     $response = $this
         ->actingAs($user)
         ->from('/settings/password')
-        ->put('/settings/password', [
+        ->put('/settings/password', withFormProtection([
             'current_password' => 'wrong-password',
             'password' => testPassword(),
             'password_confirmation' => testPassword(),
-        ]);
+        ]));
 
     $response
         ->assertSessionHasErrors('current_password')
