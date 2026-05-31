@@ -1,10 +1,18 @@
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import type { AlumniRecord } from '@/types/alumni';
+type AlumniRecordListItem = {
+    id: string;
+    name: string;
+    degree: string;
+    yearGraduated: string;
+    campus: string;
+    employmentStatus: string;
+    schoolAttended?: string;
+};
 
 type AlumniRecordCardProps = {
-    record: AlumniRecord;
+    record: AlumniRecordListItem;
     onView: () => void;
     onEdit: () => void;
     onDelete: () => void;

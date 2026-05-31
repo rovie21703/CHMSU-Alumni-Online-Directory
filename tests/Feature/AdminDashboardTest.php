@@ -17,7 +17,8 @@ test('authenticated user can view admin dashboard', function () {
         ->assertSuccessful()
         ->assertInertia(fn ($page) => $page
             ->component('admin/dashboard')
-            ->has('records', 3)
+            ->has('records.data', 3)
+            ->where('recordsTotal', 3)
             ->has('analytics')
             ->where('analytics.total', 3)
         );

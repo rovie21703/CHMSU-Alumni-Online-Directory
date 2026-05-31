@@ -42,7 +42,13 @@ class AlumniPolicy
             return false;
         }
 
-        $alumni->loadMissing(['program', 'school']);
+        if (! $alumni->relationLoaded('program')) {
+            $alumni->load('program');
+        }
+
+        if (! $alumni->relationLoaded('school')) {
+            $alumni->load('school');
+        }
 
         // Alumni with a program — check via program's campus
         if ($alumni->program !== null) {

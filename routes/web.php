@@ -15,11 +15,12 @@ Route::post('/alumni', [AlumniController::class, 'store'])
     ->middleware('throttle:alumni-submit')
     ->name('alumni.store');
 
-Route::middleware(['auth', 'throttle:admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'throttle:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/alumni/export', AlumniExportController::class)
         ->middleware('throttle:export')
         ->name('alumni.export');
+    Route::get('/alumni/{alumnus}', [AdminAlumniController::class, 'show'])->name('alumni.show');
     Route::put('/alumni/{alumnus}', [AdminAlumniController::class, 'update'])->name('alumni.update');
     Route::delete('/alumni/{alumnus}', [AdminAlumniController::class, 'destroy'])->name('alumni.destroy');
 

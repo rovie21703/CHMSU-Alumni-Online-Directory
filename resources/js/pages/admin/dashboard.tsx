@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { motion } from 'motion/react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { SearchableSelect } from '@/components/searchable-select';
 import { CAMPUSES, schoolsForCampus } from '@/data/campus-schools';
 import { GRADUATION_YEAR_START } from '@/data/graduation-years';
@@ -8,6 +8,7 @@ import { CAMPUS_PROGRAMS } from '@/data/campus-programs';
 import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
 import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
 import { useCompactViewport } from '@/hooks/use-compact-viewport';
+import { fetchAlumniRecord } from '@/lib/fetch-alumni-record';
 import { resolveBirthPlaceFields, resolveReligionField } from '@/lib/birth-place-fields';
 import {
   BarChart,
@@ -66,8 +67,6 @@ import alumniLogo from '@/assets/images/alumni-logo.jfif';
 const MAROON = "#1A5336";
 const GOLD = "#FFB81C";
 const COLORS = ["#1A5336", "#FFB81C", "#2563eb", "#16a34a", "#9333ea", "#ea580c"];
-const PAGE_SIZE = 10;
-
 // Defined outside component to avoid recharts duplicate-key warnings on re-renders
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -1046,8 +1045,42 @@ function DeleteConfirmModal({
   );
 }
 
+type AlumniListRecord = Pick<
+  AlumniRecord,
+  | 'id'
+  | 'name'
+  | 'degree'
+  | 'yearGraduated'
+  | 'campus'
+  | 'schoolAttended'
+  | 'employmentStatus'
+  | 'employmentSector'
+  | 'locationOfEmployment'
+  | 'submittedAt'
+>;
+
+type PaginatedRecords = {
+  data: AlumniListRecord[];
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+};
+
+type DashboardFilters = {
+  search: string;
+  sort: string;
+  dir: string;
+  filter_status: string;
+  filter_sector: string;
+  filter_location: string;
+};
+
 interface DashboardProps {
-  records: AlumniRecord[];
+  records: PaginatedRecords;
+  recentRecords: AlumniListRecord[];
+  recordsTotal: number;
+  filters: DashboardFilters;
   exportOptions: ExportOptions;
   analytics: {
     total: number;
@@ -1063,12 +1096,33 @@ interface DashboardProps {
     empStatusData: { name: string; value: number; _uid: string }[];
     locationData: { name: string; value: number; _uid: string }[];
     schoolCounts: Record<string, number>;
+    sectorGovernment: number;
+    sectorPrivate: number;
+    sectorEntrepreneurial: number;
+    mastersCount: number;
+    doctorateCount: number;
+    presentStatusBreakdown: { label: string; count: number }[];
     employmentRate: number;
     abroadRate: number;
   };
 }
 
-export default function AdminDashboard({ records, analytics, exportOptions }: DashboardProps) {
+function sortKeyToParam(key: SortKey): string {
+  return key === 'yearGraduated' ? 'year_graduated' : key;
+}
+
+function sortParamToKey(param: string): SortKey {
+  return param === 'year_graduated' ? 'yearGraduated' : (param as SortKey);
+}
+
+export default function AdminDashboard({
+  records,
+  recentRecords,
+  recordsTotal,
+  filters: initialFilters,
+  analytics,
+  exportOptions,
+}: DashboardProps) {
   const isCompact = useCompactViewport();
   const sectorChartYAxisWidth = isCompact ? 56 : 100;
   const degreeChartYAxisWidth = isCompact ? 72 : 130;
@@ -1080,19 +1134,71 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   const [tab, setTab] = useState<Tab>("overview");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(initialFilters.search);
+  const [sortKey, setSortKey] = useState<SortKey>(sortParamToKey(initialFilters.sort));
+  const [sortDir, setSortDir] = useState<SortDir>(initialFilters.dir === 'desc' ? 'desc' : 'asc');
+  const [filterSector, setFilterSector] = useState(initialFilters.filter_sector);
+  const [filterStatus, setFilterStatus] = useState(initialFilters.filter_status);
+  const [filterLocation, setFilterLocation] = useState(initialFilters.filter_location);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AlumniRecord | null>(null);
   const [editRecord, setEditRecord] = useState<AlumniRecord | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<AlumniRecord | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
 
-  // Filters
-  const [filterSector, setFilterSector] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterLocation, setFilterLocation] = useState("");
+  const paginatedRecords = records.data;
+  const currentPage = records.current_page;
+  const totalPages = records.last_page;
+
+  const reloadRecords = (overrides: {
+    search?: string;
+    sort?: SortKey;
+    dir?: SortDir;
+    page?: number;
+    filter_sector?: string;
+    filter_status?: string;
+    filter_location?: string;
+  } = {}) => {
+    const nextSort = overrides.sort ?? sortKey;
+    const nextDir = overrides.dir ?? sortDir;
+
+    router.get(
+      route('admin.dashboard'),
+      {
+        search: overrides.search ?? search,
+        sort: sortKeyToParam(nextSort),
+        dir: nextDir,
+        page: overrides.page ?? currentPage,
+        filter_sector: overrides.filter_sector ?? filterSector,
+        filter_status: overrides.filter_status ?? filterStatus,
+        filter_location: overrides.filter_location ?? filterLocation,
+      },
+      {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        only: ['records', 'recordsTotal', 'filters'],
+      },
+    );
+  };
+
+  const openRecord = async (listRecord: AlumniListRecord, action: 'view' | 'edit' | 'delete') => {
+    setLoadingRecord(true);
+    try {
+      const record = await fetchAlumniRecord(listRecord.id);
+      if (action === 'view') {
+        setSelectedRecord(record);
+      } else if (action === 'edit') {
+        setEditRecord(record);
+      } else {
+        setDeleteRecord(record);
+      }
+    } catch {
+      window.alert('Unable to load this alumni record. Please try again.');
+    } finally {
+      setLoadingRecord(false);
+    }
+  };
 
   useEffect(() => {
     if (!flash?.success) {
@@ -1116,60 +1222,32 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   };
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-    setPage(1);
+    const nextDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    setSortKey(key);
+    setSortDir(nextDir);
+    reloadRecords({ sort: key, dir: nextDir, page: 1 });
   };
 
-  // Filtered + sorted records
-  const filteredRecords = useMemo(() => {
-    let result = [...records];
+  useEffect(() => {
+    setSearch(initialFilters.search);
+    setSortKey(sortParamToKey(initialFilters.sort));
+    setSortDir(initialFilters.dir === 'desc' ? 'desc' : 'asc');
+    setFilterSector(initialFilters.filter_sector);
+    setFilterStatus(initialFilters.filter_status);
+    setFilterLocation(initialFilters.filter_location);
+  }, [initialFilters]);
 
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          r.degree.toLowerCase().includes(q) ||
-          (r.email ?? '').toLowerCase().includes(q) ||
-          r.campus.toLowerCase().includes(q) ||
-          r.occupation.toLowerCase().includes(q)
-      );
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (searchDebounceRef.current) {
+      window.clearTimeout(searchDebounceRef.current);
     }
-
-    if (filterSector) {
-      result = result.filter((r) =>
-        filterSector === "ENTREPRENEURIAL"
-          ? r.employmentSector?.toUpperCase().includes("ENTREPRENEURIAL")
-          : r.employmentSector === filterSector
-      );
-    }
-    if (filterStatus) result = result.filter((r) => r.employmentStatus === filterStatus);
-    if (filterLocation) {
-      result = result.filter((r) =>
-        filterLocation === "ABROAD"
-          ? r.locationOfEmployment?.toUpperCase().includes("ABROAD")
-          : r.locationOfEmployment && !r.locationOfEmployment.toUpperCase().includes("ABROAD")
-      );
-    }
-
-    result.sort((a, b) => {
-      const va = String(a[sortKey] ?? "").toLowerCase();
-      const vb = String(b[sortKey] ?? "").toLowerCase();
-      if (va < vb) return sortDir === "asc" ? -1 : 1;
-      if (va > vb) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [records, search, sortKey, sortDir, filterSector, filterStatus, filterLocation]);
-
-  const totalPages = Math.ceil(filteredRecords.length / PAGE_SIZE);
-  const paginatedRecords = filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    searchDebounceRef.current = window.setTimeout(() => {
+      reloadRecords({ search: value, page: 1 });
+    }, 350);
+  };
 
   const navItems: { id: Tab; label: string; icon: ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <Home size={18} /> },
@@ -1444,17 +1522,12 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   </button>
                 </div>
                 <div className="md:hidden space-y-3">
-                  {[...records]
-                    .sort(
-                      (a, b) =>
-                        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-                    )
-                    .slice(0, 5)
-                    .map((r) => (
+                  {recentRecords.map((r) => (
                       <button
                         key={r.id}
                         type="button"
-                        onClick={() => setSelectedRecord(r)}
+                        onClick={() => openRecord(r, 'view')}
+                        disabled={loadingRecord}
                         className="w-full rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-left transition-colors hover:bg-gray-50"
                       >
                         <p className="font-semibold text-gray-900 truncate">{r.name}</p>
@@ -1491,13 +1564,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       </tr>
                     </thead>
                     <tbody>
-                      {[...records]
-                        .sort(
-                          (a, b) =>
-                            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-                        )
-                        .slice(0, 5)
-                        .map((r) => (
+                      {recentRecords.map((r) => (
                           <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                             <td className="py-2.5 px-3 font-medium text-gray-800">{r.name}</td>
                             <td className="py-2.5 px-3 text-gray-500 text-xs max-w-[180px] truncate">
@@ -1541,10 +1608,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                     <input
                       type="text"
                       value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPage(1);
-                      }}
+                      onChange={(e) => handleSearchChange(e.target.value)}
                       placeholder="Search alumni records..."
                       className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-base sm:text-sm"
                     />
@@ -1552,8 +1616,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   <select
                     value={filterStatus}
                     onChange={(e) => {
-                      setFilterStatus(e.target.value);
-                      setPage(1);
+                      const value = e.target.value;
+                      setFilterStatus(value);
+                      reloadRecords({ filter_status: value, page: 1 });
                     }}
                     className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 text-gray-700"
                   >
@@ -1567,8 +1632,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   <select
                     value={filterSector}
                     onChange={(e) => {
-                      setFilterSector(e.target.value);
-                      setPage(1);
+                      const value = e.target.value;
+                      setFilterSector(value);
+                      reloadRecords({ filter_sector: value, page: 1 });
                     }}
                     className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 text-gray-700"
                   >
@@ -1580,8 +1646,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   <select
                     value={filterLocation}
                     onChange={(e) => {
-                      setFilterLocation(e.target.value);
-                      setPage(1);
+                      const value = e.target.value;
+                      setFilterLocation(value);
+                      reloadRecords({ filter_location: value, page: 1 });
                     }}
                     className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 text-gray-700"
                   >
@@ -1594,8 +1661,8 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-gray-500 text-sm">
                     Showing{" "}
-                    <span className="font-semibold text-gray-800">{filteredRecords.length}</span>{" "}
-                    of <span className="font-semibold text-gray-800">{records.length}</span> records
+                    <span className="font-semibold text-gray-800">{paginatedRecords.length}</span>{" "}
+                    of <span className="font-semibold text-gray-800">{recordsTotal}</span> records
                   </p>
                   <div className="flex flex-wrap items-center gap-3">
                     {(search || filterStatus || filterSector || filterLocation) && (
@@ -1606,7 +1673,13 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                           setFilterStatus("");
                           setFilterSector("");
                           setFilterLocation("");
-                          setPage(1);
+                          reloadRecords({
+                            search: "",
+                            filter_status: "",
+                            filter_sector: "",
+                            filter_location: "",
+                            page: 1,
+                          });
                         }}
                         className="text-[#1A5336] text-xs hover:underline"
                       >
@@ -1638,9 +1711,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       <AlumniRecordCard
                         key={r.id}
                         record={r}
-                        onView={() => setSelectedRecord(r)}
-                        onEdit={() => setEditRecord(r)}
-                        onDelete={() => setDeleteRecord(r)}
+                        onView={() => openRecord(r, 'view')}
+                        onEdit={() => openRecord(r, 'edit')}
+                        onDelete={() => openRecord(r, 'delete')}
                       />
                     ))
                   )}
@@ -1707,22 +1780,28 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1.5">
                                 <button
-                                  onClick={() => setSelectedRecord(r)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1A5336]/5 text-[#1A5336] hover:bg-[#1A5336]/10 transition-colors text-xs font-medium"
+                                  type="button"
+                                  disabled={loadingRecord}
+                                  onClick={() => openRecord(r, 'view')}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1A5336]/5 text-[#1A5336] hover:bg-[#1A5336]/10 transition-colors text-xs font-medium disabled:opacity-50"
                                   title="View"
                                 >
                                   <Eye size={13} />
                                 </button>
                                 <button
-                                  onClick={() => setEditRecord(r)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-medium"
+                                  type="button"
+                                  disabled={loadingRecord}
+                                  onClick={() => openRecord(r, 'edit')}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-medium disabled:opacity-50"
                                   title="Edit"
                                 >
                                   <Pencil size={13} />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteRecord(r)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-xs font-medium"
+                                  type="button"
+                                  disabled={loadingRecord}
+                                  onClick={() => openRecord(r, 'delete')}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-xs font-medium disabled:opacity-50"
                                   title="Delete"
                                 >
                                   <Trash2 size={13} />
@@ -1741,12 +1820,12 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 {totalPages > 1 && (
                   <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-center text-gray-500 text-xs sm:text-left">
-                      Page {page} of {totalPages} ({filteredRecords.length} records)
+                      Page {currentPage} of {totalPages} ({records.total} records)
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
-                        onClick={() => setPage(Math.max(1, page - 1))}
-                        disabled={page === 1}
+                        onClick={() => reloadRecords({ page: Math.max(1, currentPage - 1) })}
+                        disabled={currentPage === 1}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors touch-manipulation"
                       >
                         <ChevronLeft size={14} />
@@ -1756,16 +1835,16 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         let p = i + 1;
                         if (totalPages > 5) {
-                          if (page <= 3) p = i + 1;
-                          else if (page >= totalPages - 2) p = totalPages - 4 + i;
-                          else p = page - 2 + i;
+                          if (currentPage <= 3) p = i + 1;
+                          else if (currentPage >= totalPages - 2) p = totalPages - 4 + i;
+                          else p = currentPage - 2 + i;
                         }
                         return (
                           <button
                             key={p}
-                            onClick={() => setPage(p)}
+                            onClick={() => reloadRecords({ page: p })}
                             className={`min-h-9 min-w-9 rounded-lg text-xs font-medium transition-colors touch-manipulation ${
-                              p === page
+                              p === currentPage
                                 ? "bg-[#1A5336] text-white shadow-sm"
                                 : "text-gray-600 hover:bg-gray-50 border border-gray-200"
                             }`}
@@ -1776,8 +1855,8 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       })}
 
                       <button
-                        onClick={() => setPage(Math.min(totalPages, page + 1))}
-                        disabled={page === totalPages}
+                        onClick={() => reloadRecords({ page: Math.min(totalPages, currentPage + 1) })}
+                        disabled={currentPage === totalPages}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors touch-manipulation"
                       >
                         Next
@@ -1798,23 +1877,21 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 <StatCard
                   icon={<Building size={22} />}
                   label="Government"
-                  value={records.filter((r) => r.employmentSector === "GOVERNMENT").length}
+                  value={analytics.sectorGovernment}
                   sub="Public sector employed"
                   color="#2563eb"
                 />
                 <StatCard
                   icon={<Briefcase size={22} />}
                   label="Private Sector"
-                  value={records.filter((r) => r.employmentSector === "PRIVATE").length}
+                  value={analytics.sectorPrivate}
                   sub="Private sector employed"
                   color="#16a34a"
                 />
                 <StatCard
                   icon={<TrendingUp size={22} />}
                   label="Entrepreneurial"
-                  value={
-                    records.filter((r) => r.employmentSector?.toUpperCase().includes("ENTREPRENEURIAL")).length
-                  }
+                  value={analytics.sectorEntrepreneurial}
                   sub="Freelance / Business"
                   color="#FFB81C"
                 />
@@ -1900,46 +1977,20 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 </h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                   {[
-                    {
-                      label: "Regular",
-                      count: records.filter((r) => r.presentEmploymentStatus === "REGULAR").length,
-                      color: "#16a34a",
-                    },
-                    {
-                      label: "Probationary",
-                      count: records.filter((r) => r.presentEmploymentStatus === "PROBATIONARY").length,
-                      color: "#FFB81C",
-                    },
-                    {
-                      label: "Casual",
-                      count: records.filter((r) => r.presentEmploymentStatus === "CASUAL").length,
-                      color: "#ea580c",
-                    },
-                    {
-                      label: "Job Order",
-                      count: records.filter((r) => r.presentEmploymentStatus === "JOB ORDER").length,
-                      color: "#9333ea",
-                    },
-                    {
-                      label: "Self-employed",
-                      count: records.filter((r) => r.presentEmploymentStatus === "SELF-EMPLOYED").length,
-                      color: "#2563eb",
-                    },
-                    {
-                      label: "Unemployed",
-                      count: analytics.unemployed,
-                      color: "#dc2626",
-                    },
-                    {
-                      label: "Retired",
-                      count: analytics.retired,
-                      color: "#64748b",
-                    },
-                    {
-                      label: "Business Owner",
-                      count: analytics.businessOwners,
-                      color: "#0891b2",
-                    },
+                    ...analytics.presentStatusBreakdown.map((item) => ({
+                      ...item,
+                      color:
+                        {
+                          Regular: '#16a34a',
+                          Probationary: '#FFB81C',
+                          Casual: '#ea580c',
+                          'Job Order': '#9333ea',
+                          'Self-employed': '#2563eb',
+                          Unemployed: '#dc2626',
+                        }[item.label] ?? '#64748b',
+                    })),
+                    { label: 'Retired', count: analytics.retired, color: '#64748b' },
+                    { label: 'Business Owner', count: analytics.businessOwners, color: '#0891b2' },
                   ].map((item) => (
                     <div
                       key={item.label}
@@ -1976,14 +2027,14 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 <StatCard
                   icon={<Award size={22} />}
                   label="With Master's"
-                  value={records.filter((r) => r.highestAttainment === "MASTER").length}
+                  value={analytics.mastersCount}
                   sub="Graduate degree"
                   color={GOLD}
                 />
                 <StatCard
                   icon={<Award size={22} />}
                   label="With Doctorate"
-                  value={records.filter((r) => r.highestAttainment === "DOCTORATE").length}
+                  value={analytics.doctorateCount}
                   sub="Doctoral degree"
                   color="#9333ea"
                 />

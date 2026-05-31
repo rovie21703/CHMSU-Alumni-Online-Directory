@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::bind('staff', fn (string $value): User => User::query()->staff()->findOrFail($value));
+
+        Model::preventLazyLoading(! $this->app->isProduction());
 
         $this->configurePasswordDefaults();
         $this->configureRateLimiting();

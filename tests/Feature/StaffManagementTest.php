@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Models\Campus;
 use App\Models\User;
+use Database\Seeders\AdminUserSeeder;
 
 test('guest cannot access staff management', function () {
     $this->get(route('admin.staff.index'))->assertRedirect(route('login'));
@@ -38,8 +39,8 @@ test('admin can create staff member', function () {
         ->post(route('admin.staff.store'), [
             'name' => 'Talisay Staff',
             'email' => 'staff.talisay@chmsu.edu.ph',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => testPassword(),
+            'password_confirmation' => testPassword(),
             'campus_id' => $campus->id,
         ])
         ->assertRedirect(route('admin.staff.index'))
@@ -112,7 +113,7 @@ test('admin user seeder creates admin role', function () {
     $admin = User::query()->where('email', 'admin@chmsu.edu.ph')->first();
 
     if ($admin === null) {
-        $this->seed(\Database\Seeders\AdminUserSeeder::class);
+        $this->seed(AdminUserSeeder::class);
         $admin = User::query()->where('email', 'admin@chmsu.edu.ph')->first();
     }
 

@@ -12,6 +12,13 @@ test('alumni registration form can be rendered', function () {
     $this->get(route('alumni.create'))->assertSuccessful();
 });
 
+test('alumni submission rejects honeypot field', function () {
+    $payload = validAlumniPayload();
+    $payload['website'] = 'https://spam.example';
+
+    $this->post(route('alumni.store'), $payload)->assertSessionHasErrors('website');
+});
+
 test('guest can submit a valid alumni registration', function () {
     $payload = validAlumniPayload();
 

@@ -64,6 +64,7 @@ class StoreAlumniRequest extends FormRequest
         $isEmployed = $this->input('employment_status') === 'YES';
 
         return [
+            'website' => ['nullable', 'string', 'max:0'],
             'consent_given' => ['required', 'accepted'],
             'name' => ['required', 'string', 'max:255'],
             'sex' => ['required', Rule::in(['MALE', 'FEMALE'])],

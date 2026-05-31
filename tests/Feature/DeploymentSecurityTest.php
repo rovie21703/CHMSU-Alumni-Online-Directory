@@ -6,6 +6,11 @@ use App\Models\Program;
 use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 
+test('public deploy helper scripts are not shipped', function () {
+    expect(file_exists(public_path('deploy-once.php')))->toBeFalse();
+    expect(file_exists(public_path('setup-storage.php')))->toBeFalse();
+});
+
 test('public registration is disabled by default', function () {
     config(['security.allow_registration' => false]);
 
@@ -46,8 +51,14 @@ test('staff only sees alumni from their assigned campus', function () {
         $this->markTestSkipped('Requires programs on two campuses.');
     }
 
-    Alumni::factory()->create(['program_id' => $programA->id]);
-    Alumni::factory()->create(['program_id' => $programB->id]);
+    Alumni::factory()->create([
+        'program_id' => $programA->id,
+        'campus' => $campusA->name,
+    ]);
+    Alumni::factory()->create([
+        'program_id' => $programB->id,
+        'campus' => $campusB->name,
+    ]);
 
     $staff = User::factory()->staff()->create(['campus_id' => $campusA->id]);
 
@@ -55,8 +66,8 @@ test('staff only sees alumni from their assigned campus', function () {
         ->get(route('admin.dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn ($page) => $page
-            ->has('records', 1)
-            ->where('records.0.campus', $campusA->name)
+            ->has('records.data', 1)
+            ->where('records.data.0.campus', $campusA->name)
         );
 });
 

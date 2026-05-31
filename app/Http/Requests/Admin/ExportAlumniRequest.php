@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Alumni;
 use App\Support\AlumniExportColumns;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,18 @@ class ExportAlumniRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('export', \App\Models\Alumni::class) ?? false;
+        return $this->user()?->can('export', Alumni::class) ?? false;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $user = $this->user();
+
+        if ($user !== null && ! $user->isAdmin() && $user->campus_id !== null) {
+            $this->merge([
+                'campus_ids' => [$user->campus_id],
+            ]);
+        }
     }
 
     /**

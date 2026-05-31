@@ -15,6 +15,25 @@ class AlumniFactory extends Factory
 {
     protected $model = Alumni::class;
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Alumni $alumni): void {
+            if ($alumni->program_id === null) {
+                return;
+            }
+
+            $campusName = Program::query()
+                ->with('campus')
+                ->find($alumni->program_id)
+                ?->campus
+                ?->name;
+
+            if ($campusName !== null) {
+                $alumni->campus = $campusName;
+            }
+        });
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -24,6 +43,7 @@ class AlumniFactory extends Factory
         $isEmployed = $employmentStatus === 'YES';
 
         $program = Program::query()->with('campus')->inRandomOrder()->first();
+        $campusName = $program?->campus?->name ?? 'TALISAY (MAIN) CAMPUS';
 
         return [
             'submitted_at' => fake()->dateTimeBetween('-2 years'),
@@ -41,7 +61,7 @@ class AlumniFactory extends Factory
             'religion' => fake()->randomElement(['ROMAN CATHOLIC', 'IGLESIA NI CRISTO', 'BAPTIST']),
             'email' => fake()->unique()->safeEmail(),
             'school_id' => School::query()->where('code', 'CHMSU')->value('id'),
-            'campus' => $program?->campus?->name ?? 'TALISAY (MAIN) CAMPUS',
+            'campus' => $campusName,
             'program_id' => $program?->id,
             'year_graduated' => (string) fake()->numberBetween(1990, (int) date('Y')),
             'highest_attainment' => fake()->randomElement(['N/A', 'MASTER', 'DOCTORATE']),

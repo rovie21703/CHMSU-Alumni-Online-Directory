@@ -394,6 +394,14 @@ export default function AlumniForm() {
         {/* Form */}
         <div className="max-w-4xl mx-auto px-4 py-6 sm:py-10">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              className="absolute -left-[9999px] h-0 w-0 opacity-0"
+              aria-hidden="true"
+            />
             {/* ======= PERSONAL INFORMATION ======= */}
             {currentStep === 1 && (
               <motion.div
