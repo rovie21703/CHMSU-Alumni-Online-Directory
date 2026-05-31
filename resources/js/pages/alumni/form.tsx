@@ -19,8 +19,12 @@ import { useForm } from 'react-hook-form';
 
 import { ConsentModal } from '@/components/alumni/consent-modal';
 import { ChmsuLogo } from '@/components/chmsu-logo';
+import { SearchableSelect } from '@/components/searchable-select';
+import { CAMPUSES, CAMPUS_SCHOOLS } from '@/data/campus-schools';
 import { CAMPUS_PROGRAMS } from '@/data/campus-programs';
+import { GRADUATION_YEAR_START, graduationYearOptions } from '@/data/graduation-years';
 import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
+import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
 import type { SharedData } from '@/types';
 
 import alumniLogo from '@/assets/images/alumni-logo.jfif';
@@ -31,11 +35,14 @@ type FormData = {
   dateOfBirth: string;
   age: string;
   birthProvince: string;
+  birthProvinceOther: string;
   birthCity: string;
+  birthCityOther: string;
   mobileNo: string;
   address: string;
   civilStatus: string;
   religion: string;
+  religionOther: string;
   email: string;
   yearGraduated: string;
   campus: string;
@@ -54,9 +61,9 @@ type FormData = {
 };
 
 const inputClass =
-  "w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#1A5336]/30 focus:border-[#1A5336] transition-all text-gray-800 placeholder-gray-400";
+  "w-full min-h-11 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-base sm:text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1A5336]/30 focus:border-[#1A5336] transition-all text-gray-800 placeholder-gray-400";
 const selectClass =
-  "w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#1A5336]/30 focus:border-[#1A5336] transition-all text-gray-800 appearance-none cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed";
+  "w-full min-h-11 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-base sm:text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1A5336]/30 focus:border-[#1A5336] transition-all text-gray-800 appearance-none cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed";
 const labelClass = "block text-sm text-gray-700 mb-1.5";
 const errorClass = "text-red-500 text-xs mt-1";
 
@@ -68,6 +75,7 @@ const STEP_1_FIELDS = [
   "age",
   "birthProvince",
   "birthCity",
+  "religion",
   "mobileNo",
   "email",
   "address",
@@ -81,7 +89,7 @@ const STEP_2_FIELDS = [
 ] as const;
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = Array.from({ length: 60 }, (_, i) => CURRENT_YEAR - i);
+const YEAR_OPTIONS = graduationYearOptions();
 
 function SectionHeader({
   icon,
@@ -210,7 +218,13 @@ export default function AlumniForm() {
   const selectedCampus = watch("campus");
   const birthProvince = watch("birthProvince");
   const birthCity = watch("birthCity");
-  const availableCities = birthProvince ? PHILIPPINE_LOCATIONS[birthProvince] ?? [] : [];
+  const religion = watch("religion");
+  const provinceIsOthers = birthProvince === SELECT_OTHERS;
+  const cityIsOthers = birthCity === SELECT_OTHERS;
+  const religionIsOthers = religion === SELECT_OTHERS;
+  const availableCities = birthProvince && !provinceIsOthers
+    ? PHILIPPINE_LOCATIONS[birthProvince] ?? []
+    : [];
 
   useEffect(() => {
     if (dateOfBirth) {
@@ -224,23 +238,39 @@ export default function AlumniForm() {
   }, [dateOfBirth, setValue]);
 
   useEffect(() => {
-    if (!birthProvince) {
-      setValue("birthCity", "");
+    if (!birthProvince || provinceIsOthers) {
+      if (!provinceIsOthers) {
+        setValue("birthCity", "");
+        setValue("birthCityOther", "");
+      }
       return;
     }
 
     const cities = PHILIPPINE_LOCATIONS[birthProvince] ?? [];
-    if (birthCity && !cities.includes(birthCity)) {
+    if (birthCity && birthCity !== SELECT_OTHERS && !cities.includes(birthCity)) {
       setValue("birthCity", "");
+      setValue("birthCityOther", "");
     }
-  }, [birthProvince, birthCity, setValue]);
+  }, [birthProvince, birthCity, provinceIsOthers, setValue]);
 
   const isEmployed = employmentStatus === "YES";
   const showEmploymentDetails =
     employmentStatus === "YES" || employmentStatus === "BUSINESS OWNER";
 
   const handleNextStep1 = async () => {
-    const valid = await trigger([...STEP_1_FIELDS]);
+    const fields: Array<keyof FormData> = [...STEP_1_FIELDS];
+
+    if (provinceIsOthers) {
+      fields.push('birthProvinceOther', 'birthCityOther');
+    } else if (cityIsOthers) {
+      fields.push('birthCityOther');
+    }
+
+    if (religionIsOthers) {
+      fields.push('religionOther');
+    }
+
+    const valid = await trigger(fields);
     if (valid) {
       setCurrentStep(2);
     }
@@ -349,20 +379,20 @@ export default function AlumniForm() {
       <div className="min-h-screen bg-gray-50">
         {/* Navbar */}
         <nav className="bg-[#1A5336] border-b-4 border-[#FFB81C]" style={{ boxShadow: "inset 0 -8px 0 -4px #0033A0" }}>
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 min-w-0">
+            <div className="flex flex-shrink-0 items-center gap-2">
               <ChmsuLogo className="w-10 h-10 object-contain rounded-full bg-white p-0.5" />
               <img src={alumniLogo} alt="Alumni Logo" className="w-10 h-10 object-contain rounded-full bg-white p-0.5" />
             </div>
-            <div>
-              <p className="text-white text-sm font-semibold leading-tight">CHMSU Alumni Online Directory</p>
-              <p className="text-white/70 text-xs leading-tight">Carlos Hilado Memorial State University</p>
+            <div className="min-w-0">
+              <p className="text-white text-sm font-semibold leading-tight truncate">CHMSU Alumni Online Directory</p>
+              <p className="text-white/70 text-xs leading-tight truncate">Carlos Hilado Memorial State University</p>
             </div>
           </div>
         </nav>
 
         {/* Form */}
-        <div className="max-w-4xl mx-auto px-4 py-10">
+        <div className="max-w-4xl mx-auto px-4 py-6 sm:py-10">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             {/* ======= PERSONAL INFORMATION ======= */}
             {currentStep === 1 && (
@@ -371,7 +401,7 @@ export default function AlumniForm() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8"
               >
                 <SectionHeader
                   icon={<User size={22} />}
@@ -498,56 +528,91 @@ export default function AlumniForm() {
                         <label className={labelClass}>
                           1. Province <span className="text-red-500">*</span>
                         </label>
-                        <div className="relative">
-                          <select
-                            {...register("birthProvince", { required: "Province is required" })}
-                            className={selectClass}
-                            onChange={(e) => {
-                              setValue("birthProvince", e.target.value);
+                        <input type="hidden" {...register("birthProvince", { required: "Province is required" })} />
+                        <SearchableSelect
+                          value={birthProvince}
+                          onChange={(value) => {
+                            setValue("birthProvince", value, { shouldValidate: true });
+                            if (value === SELECT_OTHERS) {
+                              setValue("birthCity", SELECT_OTHERS);
+                            } else {
                               setValue("birthCity", "");
+                            }
+                            setValue("birthCityOther", "");
+                            setValue("birthProvinceOther", "");
+                          }}
+                          options={PHILIPPINE_PROVINCES}
+                          placeholder="SELECT PROVINCE"
+                          error={errors.birthProvince?.message}
+                          triggerClassName={selectClass.replace('appearance-none cursor-pointer', '')}
+                        />
+                        {provinceIsOthers && (
+                          <input
+                            {...register("birthProvinceOther", {
+                              required: "Please specify your province",
+                            })}
+                            className={`${inputClass} mt-2`}
+                            placeholder="SPECIFY PROVINCE"
+                            onChange={(e) => {
+                              e.target.value = e.target.value.toUpperCase();
+                              setValue("birthProvinceOther", e.target.value, { shouldValidate: true });
                             }}
-                          >
-                            <option value="">SELECT PROVINCE</option>
-                            {PHILIPPINE_PROVINCES.map((province) => (
-                              <option key={province} value={province}>
-                                {province}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown
-                            size={16}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
                           />
-                        </div>
-                        {errors.birthProvince && (
-                          <p className={errorClass}>{errors.birthProvince.message}</p>
+                        )}
+                        {errors.birthProvinceOther && (
+                          <p className={errorClass}>{errors.birthProvinceOther.message}</p>
                         )}
                       </div>
                       <div>
                         <label className={labelClass}>
                           2. City / Municipality <span className="text-red-500">*</span>
                         </label>
-                        <div className="relative">
-                          <select
-                            {...register("birthCity", { required: "City / municipality is required" })}
-                            className={selectClass}
-                            disabled={!birthProvince}
-                          >
-                            <option value="">
-                              {birthProvince ? "SELECT CITY / MUNICIPALITY" : "SELECT PROVINCE FIRST"}
-                            </option>
-                            {availableCities.map((city) => (
-                              <option key={city} value={city}>
-                                {city}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown
-                            size={16}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        <input type="hidden" {...register("birthCity", { required: "City / municipality is required" })} />
+                        {provinceIsOthers ? (
+                          <input
+                            {...register("birthCityOther", {
+                              required: "Please specify your city / municipality",
+                            })}
+                            className={inputClass}
+                            placeholder="SPECIFY CITY / MUNICIPALITY"
+                            onChange={(e) => {
+                              e.target.value = e.target.value.toUpperCase();
+                              setValue("birthCityOther", e.target.value, { shouldValidate: true });
+                              setValue("birthCity", SELECT_OTHERS);
+                            }}
                           />
-                        </div>
-                        {errors.birthCity && <p className={errorClass}>{errors.birthCity.message}</p>}
+                        ) : (
+                          <>
+                            <SearchableSelect
+                              value={birthCity}
+                              onChange={(value) => {
+                                setValue("birthCity", value, { shouldValidate: true });
+                                setValue("birthCityOther", "");
+                              }}
+                              options={availableCities}
+                              placeholder={birthProvince ? "SELECT CITY / MUNICIPALITY" : "SELECT PROVINCE FIRST"}
+                              disabled={!birthProvince}
+                              error={errors.birthCity?.message}
+                              triggerClassName={selectClass.replace('appearance-none cursor-pointer', '')}
+                            />
+                            {cityIsOthers && (
+                              <input
+                                {...register("birthCityOther", {
+                                  required: "Please specify your city / municipality",
+                                })}
+                                className={`${inputClass} mt-2`}
+                                placeholder="SPECIFY CITY / MUNICIPALITY"
+                                onChange={(e) => {
+                                  e.target.value = e.target.value.toUpperCase();
+                                  setValue("birthCityOther", e.target.value, { shouldValidate: true });
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                        {errors.birthCityOther && (
+                          <p className={errorClass}>{errors.birthCityOther.message}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -586,62 +651,37 @@ export default function AlumniForm() {
 
                   {/* Religion */}
                   <div>
-                    <label className={labelClass}>Religion</label>
-                    <div className="relative">
-                      <select
-                        {...register("religion")}
-                        className={selectClass}
-                      >
-                        <option value="">SELECT RELIGION</option>
-                        <option value="AGNOSTICISM">AGNOSTICISM</option>
-                        <option value="AGLIPAYAN">AGLIPAYAN</option>
-                        <option value="ANITISM">ANITISM</option>
-                        <option value="ATHEISM">ATHEISM</option>
-                        <option value="BAHÁʼÍ">BAHÁʼÍ</option>
-                        <option value="BABAYLANISM">BABAYLANISM</option>
-                        <option value="BAPTIST">BAPTIST</option>
-                        <option value="BATHALISM">BATHALISM</option>
-                        <option value="BUDDHISM">BUDDHISM</option>
-                        <option value="CHINESE FOLK RELIGION">CHINESE FOLK RELIGION</option>
-                        <option value="EPISCOPALIAN">EPISCOPALIAN</option>
-                        <option value="EVANGELICAL">EVANGELICAL</option>
-                        <option value="HINDUISM">HINDUISM</option>
-                        <option value="HUMANISM">HUMANISM</option>
-                        <option value="IGLESIA NI CRISTO">IGLESIA NI CRISTO</option>
-                        <option value="INDIGENOUS TRIBAL RELIGIONS">INDIGENOUS TRIBAL RELIGIONS</option>
-                        <option value="ISLAM">ISLAM</option>
-                        <option value="JEHOVAH'S WITNESS">JEHOVAH'S WITNESS</option>
-                        <option value="JESUS IS LORD">JESUS IS LORD</option>
-                        <option value="JUDAISM">JUDAISM</option>
-                        <option value="KINGDOM OF JESUS CHRIST">KINGDOM OF JESUS CHRIST</option>
-                        <option value="LUTHERAN">LUTHERAN</option>
-                        <option value="MAHAYANA BUDDHIST">MAHAYANA BUDDHIST</option>
-                        <option value="MEMBERS CHURCH OF GOD INTERNATIONAL">MEMBERS CHURCH OF GOD INTERNATIONAL</option>
-                        <option value="METHODIST">METHODIST</option>
-                        <option value="MORMON">MORMON</option>
-                        <option value="NEW AGE">NEW AGE</option>
-                        <option value="ORTHODOX CHRISTIAN">ORTHODOX CHRISTIAN</option>
-                        <option value="PENTECOSTAL">PENTECOSTAL</option>
-                        <option value="PRESBYTERIAN">PRESBYTERIAN</option>
-                        <option value="PROTESTANT">PROTESTANT</option>
-                        <option value="REFORMED CHRISTIAN">REFORMED CHRISTIAN</option>
-                        <option value="ROMAN CATHOLIC">ROMAN CATHOLIC</option>
-                        <option value="SECULARISM">SECULARISM</option>
-                        <option value="SEVENTH-DAY ADVENTIST">SEVENTH-DAY ADVENTIST</option>
-                        <option value="SHIA MUSLIM">SHIA MUSLIM</option>
-                        <option value="SIKHISM">SIKHISM</option>
-                        <option value="SPIRITUALISM">SPIRITUALISM</option>
-                        <option value="SUFI">SUFI</option>
-                        <option value="SUNNI MUSLIM">SUNNI MUSLIM</option>
-                        <option value="TAOISM">TAOISM</option>
-                        <option value="THERAVADA BUDDHIST">THERAVADA BUDDHIST</option>
-                        <option value="TIBETAN BUDDHIST">TIBETAN BUDDHIST</option>
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    <label className={labelClass}>
+                      Religion <span className="text-red-500">*</span>
+                    </label>
+                    <input type="hidden" {...register("religion", { required: "Religion is required" })} />
+                    <SearchableSelect
+                      value={religion}
+                      onChange={(value) => {
+                        setValue("religion", value, { shouldValidate: true });
+                        setValue("religionOther", "");
+                      }}
+                      options={RELIGIONS}
+                      placeholder="SELECT RELIGION"
+                      error={errors.religion?.message}
+                      triggerClassName={selectClass.replace('appearance-none cursor-pointer', '')}
+                    />
+                    {religionIsOthers && (
+                      <input
+                        {...register("religionOther", {
+                          required: "Please specify your religion",
+                        })}
+                        className={`${inputClass} mt-2`}
+                        placeholder="SPECIFY RELIGION"
+                        onChange={(e) => {
+                          e.target.value = e.target.value.toUpperCase();
+                          setValue("religionOther", e.target.value, { shouldValidate: true });
+                        }}
                       />
-                    </div>
+                    )}
+                    {errors.religionOther && (
+                      <p className={errorClass}>{errors.religionOther.message}</p>
+                    )}
                   </div>
 
                   {/* Email */}
@@ -649,14 +689,14 @@ export default function AlumniForm() {
                     <label className={labelClass}>
                       <span className="flex items-center gap-1.5">
                         <Mail size={13} className="text-[#1A5336]" />
-                        Email Address <span className="text-red-500">*</span>
+                        Email Address
                       </span>
                     </label>
                     <input
                       type="email"
                       {...register("email", {
-                        required: "Email is required",
-                        pattern: { value: /^\S+@\S+$/i, message: "Invalid email" },
+                        validate: (value) =>
+                          !value || /^\S+@\S+$/i.test(value) || "Invalid email",
                       })}
                       className={inputClass}
                       placeholder="your@email.com"
@@ -689,7 +729,7 @@ export default function AlumniForm() {
                   <button
                     type="button"
                     onClick={handleNextStep1}
-                    className="px-8 py-3 bg-[#1A5336] text-white rounded-xl hover:bg-[#134026] transition-colors shadow-sm font-medium"
+                    className="w-full sm:w-auto px-8 py-3 bg-[#1A5336] text-white rounded-xl hover:bg-[#134026] transition-colors shadow-sm font-medium"
                   >
                     Next Step
                   </button>
@@ -704,7 +744,7 @@ export default function AlumniForm() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8"
               >
                 <SectionHeader
                   icon={<GraduationCap size={22} />}
@@ -713,66 +753,73 @@ export default function AlumniForm() {
                   index={2}
                 />
 
-                {/* Campus */}
-                <div>
-                  <label className={labelClass}>
-                    <span className="flex items-center gap-1.5">
-                      <Building2 size={13} className="text-[#1A5336]" />
-                      Campus <span className="text-red-500">*</span>
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      {...register("campus", { required: "Campus is required" })}
-                      className={selectClass}
-                      onChange={(e) => {
-                        setValue("campus", e.target.value);
-                        setSchoolAttended("");
-                        setValue("degree", ""); // Reset degree when campus changes
-                      }}
-                    >
-                      <option value="">SELECT CAMPUS</option>
-                      <option value="TALISAY (MAIN) CAMPUS">TALISAY (MAIN) CAMPUS</option>
-                      <option value="FORTUNE TOWNE CAMPUS">FORTUNE TOWNE CAMPUS</option>
-                      <option value="BINALBAGAN CAMPUS">BINALBAGAN CAMPUS</option>
-                      <option value="ALIJIS CAMPUS">ALIJIS CAMPUS</option>
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Campus */}
+                  <div>
+                    <label className={labelClass}>
+                      <span className="flex items-center gap-1.5">
+                        <Building2 size={13} className="text-[#1A5336]" />
+                        Campus <span className="text-red-500">*</span>
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        {...register("campus", { required: "Campus is required" })}
+                        className={selectClass}
+                        onChange={(e) => {
+                          setValue("campus", e.target.value);
+                          setSchoolAttended("");
+                          setValue("degree", "");
+                        }}
+                      >
+                        <option value="">SELECT CAMPUS</option>
+                        {CAMPUSES.map((campus) => (
+                          <option key={campus} value={campus}>
+                            {campus}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                      />
+                    </div>
+                    {errors.campus && <p className={errorClass}>{errors.campus.message}</p>}
                   </div>
-                  {errors.campus && <p className={errorClass}>{errors.campus.message}</p>}
-                </div>
 
-                {/* Year Graduated */}
-                <div>
-                  <label className={labelClass}>
-                    <span className="flex items-center gap-1.5">
-                      <Calendar size={13} className="text-[#1A5336]" />
-                      Year Graduated <span className="text-red-500">*</span>
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      {...register("yearGraduated", { required: "Year graduated is required" })}
-                      className={selectClass}
-                    >
-                      <option value="">SELECT YEAR</option>
-                      {YEAR_OPTIONS.map((y) => (
-                        <option key={y} value={String(y)}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  {/* Year Graduated */}
+                  <div>
+                    <label className={labelClass}>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar size={13} className="text-[#1A5336]" />
+                        Year Graduated <span className="text-red-500">*</span>
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={GRADUATION_YEAR_START}
+                      max={CURRENT_YEAR}
+                      {...register("yearGraduated", {
+                        required: "Year graduated is required",
+                        min: {
+                          value: GRADUATION_YEAR_START,
+                          message: `Year must be ${GRADUATION_YEAR_START} or later`,
+                        },
+                        max: {
+                          value: CURRENT_YEAR,
+                          message: `Year cannot be later than ${CURRENT_YEAR}`,
+                        },
+                        validate: (value) =>
+                          /^\d{4}$/.test(String(value)) || "Enter a 4-digit year",
+                      })}
+                      className={inputClass}
+                      placeholder="E.G. 2024"
                     />
+                    {errors.yearGraduated && (
+                      <p className={errorClass}>{errors.yearGraduated.message}</p>
+                    )}
                   </div>
-                  {errors.yearGraduated && (
-                    <p className={errorClass}>{errors.yearGraduated.message}</p>
-                  )}
                 </div>
 
                 {/* School Attended */}
@@ -781,54 +828,8 @@ export default function AlumniForm() {
                     <label className={labelClass}>
                       School Attended <span className="text-red-500">*</span>
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {selectedCampus === "TALISAY (MAIN) CAMPUS" &&
-                        ["CHMSU", "CHMSC", "PSC", "NOCAT", "NOSAT"].map((s) => (
-                          <RadioOption
-                            key={s}
-                            name="schoolAttended"
-                            value={s}
-                            label={s}
-                            checked={schoolAttended === s}
-                            onChange={() => {
-                              setSchoolAttended(s);
-                              setSchoolError("");
-                              setValue("degree", "");
-                            }}
-                          />
-                        ))}
-                      {selectedCampus === "ALIJIS CAMPUS" &&
-                        ["BCNTS", "PSC", "CHMSC", "CHMSU"].map((s) => (
-                          <RadioOption
-                            key={s}
-                            name="schoolAttended"
-                            value={s}
-                            label={s}
-                            checked={schoolAttended === s}
-                            onChange={() => {
-                              setSchoolAttended(s);
-                              setSchoolError("");
-                              setValue("degree", "");
-                            }}
-                          />
-                        ))}
-                      {selectedCampus === "FORTUNE TOWNE CAMPUS" &&
-                        ["NOPCC", "CHMSC", "CHMSU"].map((s) => (
-                          <RadioOption
-                            key={s}
-                            name="schoolAttended"
-                            value={s}
-                            label={s}
-                            checked={schoolAttended === s}
-                            onChange={() => {
-                              setSchoolAttended(s);
-                              setSchoolError("");
-                              setValue("degree", "");
-                            }}
-                          />
-                        ))}
-                      {selectedCampus === "BINALBAGAN CAMPUS" &&
-                        ["NOSOF", "CHMSC", "CHMSU"].map((s) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      {(CAMPUS_SCHOOLS[selectedCampus] ?? []).map((s) => (
                           <RadioOption
                             key={s}
                             name="schoolAttended"
@@ -855,7 +856,7 @@ export default function AlumniForm() {
                     <label className={labelClass}>
                       Degree / Course <span className="text-red-500">*</span>
                     </label>
-                    {["CHMSU", "CHMSC"].includes(schoolAttended) ? (
+                    {schoolAttended === "CHMSU" ? (
                       <div className="relative">
                         <select
                           {...register("degree", { required: "Degree is required" })}
@@ -936,18 +937,18 @@ export default function AlumniForm() {
                     />
                   </div>
                 </div>
-                <div className="mt-8 flex justify-between">
+                <div className="mt-8 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => setCurrentStep(1)}
-                    className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors shadow-sm font-medium"
+                    className="w-full sm:w-auto px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors shadow-sm font-medium"
                   >
                     Previous
                   </button>
                   <button
                     type="button"
                     onClick={handleNextStep2}
-                    className="px-8 py-3 bg-[#1A5336] text-white rounded-xl hover:bg-[#134026] transition-colors shadow-sm font-medium"
+                    className="w-full sm:w-auto px-8 py-3 bg-[#1A5336] text-white rounded-xl hover:bg-[#134026] transition-colors shadow-sm font-medium"
                   >
                     Next Step
                   </button>
@@ -962,7 +963,7 @@ export default function AlumniForm() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8"
               >
                 <SectionHeader
                   icon={<Briefcase size={22} />}

@@ -41,6 +41,7 @@ class AlumniFactory extends Factory
             'religion' => fake()->randomElement(['ROMAN CATHOLIC', 'IGLESIA NI CRISTO', 'BAPTIST']),
             'email' => fake()->unique()->safeEmail(),
             'school_id' => School::query()->where('code', 'CHMSU')->value('id'),
+            'campus' => $program?->campus?->name ?? 'TALISAY (MAIN) CAMPUS',
             'program_id' => $program?->id,
             'year_graduated' => (string) fake()->numberBetween(1990, (int) date('Y')),
             'highest_attainment' => fake()->randomElement(['N/A', 'MASTER', 'DOCTORATE']),

@@ -30,12 +30,15 @@ class Alumni extends Model
         'sex',
         'date_of_birth',
         'birth_city_id',
+        'birth_province_custom',
+        'birth_city_custom',
         'mobile_no',
         'address',
         'civil_status',
         'religion',
         'email',
         'school_id',
+        'campus',
         'program_id',
         'degree',
         'year_graduated',
@@ -118,7 +121,7 @@ class Alumni extends Model
                 'program',
                 fn (Builder $programQuery) => $programQuery->where('campus_id', $user->campus_id)
             )
-            // Alumni without a program (non-CHMSU/CHMSC schools) linked via school's campus
+            // Alumni without a program (non-CHMSU schools) linked via school's campus
                 ->orWhere(function (Builder $q2) use ($user) {
                     $q2->whereNull('program_id')
                         ->whereHas(

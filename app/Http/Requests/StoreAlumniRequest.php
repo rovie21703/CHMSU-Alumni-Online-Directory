@@ -2,13 +2,16 @@
 
 namespace App\Http\Requests;
 
-use App\Rules\ValidPhilippineBirthLocation;
-use App\Support\AlumniReferenceResolver;
+use App\Http\Requests\Concerns\NormalizesAlumniFormFields;
+use App\Http\Requests\Concerns\ResolvesAlumniEducation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreAlumniRequest extends FormRequest
 {
+    use NormalizesAlumniFormFields;
+    use ResolvesAlumniEducation;
+
     public function authorize(): bool
     {
         return true;
@@ -18,8 +21,6 @@ class StoreAlumniRequest extends FormRequest
     {
         $camelToSnake = [
             'dateOfBirth' => 'date_of_birth',
-            'birthProvince' => 'birth_province',
-            'birthCity' => 'birth_city',
             'mobileNo' => 'mobile_no',
             'civilStatus' => 'civil_status',
             'yearGraduated' => 'year_graduated',
@@ -42,41 +43,15 @@ class StoreAlumniRequest extends FormRequest
             }
         }
 
-        if (isset($merged['birth_province']) && is_string($merged['birth_province'])) {
-            $merged['birth_province'] = strtoupper(trim($merged['birth_province']));
+        $merged = $this->mergeAlumniFormFieldAliases($merged);
+
+        if (array_key_exists('email', $merged) && (! is_string($merged['email']) || trim($merged['email']) === '')) {
+            $merged['email'] = null;
         }
 
-        if (isset($merged['birth_city']) && is_string($merged['birth_city'])) {
-            $merged['birth_city'] = strtoupper(trim($merged['birth_city']));
-        }
-
-        if (isset($merged['campus']) && is_string($merged['campus'])) {
-            $merged['campus'] = strtoupper(trim($merged['campus']));
-        }
-
-        if (isset($merged['degree']) && is_string($merged['degree'])) {
-            $merged['degree'] = strtoupper(trim($merged['degree']));
-        }
-
-        $merged['school_id'] = AlumniReferenceResolver::schoolId(
-            is_string($merged['school_attended'] ?? null) ? $merged['school_attended'] : null
-        );
-
-        // If school is NOT CHMSU or CHMSC, keep program_id null (so we use the text degree field)
-        $schoolCode = $merged['school_attended'] ?? null;
-        if (in_array($schoolCode, ['CHMSU', 'CHMSC'])) {
-            $merged['program_id'] = AlumniReferenceResolver::programId(
-                is_string($merged['campus'] ?? null) ? $merged['campus'] : null,
-                is_string($merged['degree'] ?? null) ? $merged['degree'] : null,
-            );
-        } else {
-            $merged['program_id'] = null;
-        }
-
-        $merged['birth_city_id'] = AlumniReferenceResolver::birthCityId(
-            is_string($merged['birth_province'] ?? null) ? $merged['birth_province'] : null,
-            is_string($merged['birth_city'] ?? null) ? $merged['birth_city'] : null,
-        );
+        $merged = $this->resolveAlumniEducation($merged);
+        $merged = $this->normalizeAlumniBirthPlace($merged);
+        $merged = $this->normalizeAlumniReligion($merged);
 
         $this->merge($merged);
     }
@@ -87,27 +62,19 @@ class StoreAlumniRequest extends FormRequest
     public function rules(): array
     {
         $isEmployed = $this->input('employment_status') === 'YES';
-        $showEmploymentDetails = in_array($this->input('employment_status'), ['YES', 'BUSINESS OWNER'], true);
 
         return [
             'consent_given' => ['required', 'accepted'],
             'name' => ['required', 'string', 'max:255'],
             'sex' => ['required', Rule::in(['MALE', 'FEMALE'])],
             'date_of_birth' => ['required', 'date', 'before:today'],
-            'birth_city_id' => ['required', 'integer', 'exists:cities,id', new ValidPhilippineBirthLocation],
+            ...$this->birthPlaceRules(),
             'mobile_no' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:12'],
             'address' => ['required', 'string', 'max:1000'],
             'civil_status' => ['required', 'string', 'max:50'],
-            'religion' => ['nullable', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:255', 'unique:alumni,email'],
-            'school_id' => ['required', 'integer', 'exists:schools,id'],
-            'program_id' => [
-                Rule::requiredIf(in_array($this->input('school_attended'), ['CHMSU', 'CHMSC'])),
-                'nullable',
-                'integer',
-                'exists:programs,id',
-            ],
-            'degree' => ['nullable', 'string', 'max:255'],
+            ...$this->religionRules(),
+            'email' => ['nullable', 'email', 'max:255', 'unique:alumni,email'],
+            ...$this->educationRules(),
             'year_graduated' => ['required', 'string', 'size:4'],
             'highest_attainment' => ['required', Rule::in(['MASTER', 'DOCTORATE', 'N/A'])],
             'eligibility' => ['nullable', 'string', 'max:255'],

@@ -25,7 +25,7 @@ class DashboardController extends Controller
 
         $records = Alumni::query()
             ->visibleTo($user)
-            ->with(['school', 'program.campus', 'birthCity.province'])
+            ->with(['school.campus', 'program.campus', 'birthCity.province'])
             ->latest('submitted_at')
             ->get();
 

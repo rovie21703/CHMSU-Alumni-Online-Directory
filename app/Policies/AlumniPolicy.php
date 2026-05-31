@@ -49,7 +49,7 @@ class AlumniPolicy
             return $alumni->program->campus_id === $user->campus_id;
         }
 
-        // Alumni without a program (non-CHMSU/CHMSC schools) — check via school's campus
+        // Alumni without a program (non-CHMSU schools) — check via school's campus
         if ($alumni->school !== null) {
             return $alumni->school->campus_id === $user->campus_id;
         }

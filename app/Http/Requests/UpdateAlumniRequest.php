@@ -62,9 +62,9 @@ class StoreAlumniRequest extends FormRequest
             is_string($merged['school_attended'] ?? null) ? $merged['school_attended'] : null
         );
 
-        // If school is NOT CHMSU or CHMSC, keep program_id null (so we use the text degree field)
+        // If school is NOT CHMSU, keep program_id null (so we use the text degree field)
         $schoolCode = $merged['school_attended'] ?? null;
-        if (in_array($schoolCode, ['CHMSU', 'CHMSC'])) {
+        if ($schoolCode === 'CHMSU') {
             $merged['program_id'] = AlumniReferenceResolver::programId(
                 is_string($merged['campus'] ?? null) ? $merged['campus'] : null,
                 is_string($merged['degree'] ?? null) ? $merged['degree'] : null,
@@ -102,7 +102,7 @@ class StoreAlumniRequest extends FormRequest
             'email' => ['required', 'email', 'max:255', 'unique:alumni,email'],
             'school_id' => ['required', 'integer', 'exists:schools,id'],
             'program_id' => [
-                Rule::requiredIf(in_array($this->input('school_attended'), ['CHMSU', 'CHMSC'])),
+                Rule::requiredIf($this->input('school_attended') === 'CHMSU'),
                 'nullable',
                 'integer',
                 'exists:programs,id',

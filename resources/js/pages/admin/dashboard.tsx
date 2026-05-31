@@ -1,6 +1,14 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { SearchableSelect } from '@/components/searchable-select';
+import { CAMPUSES, schoolsForCampus } from '@/data/campus-schools';
+import { GRADUATION_YEAR_START } from '@/data/graduation-years';
+import { CAMPUS_PROGRAMS } from '@/data/campus-programs';
+import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
+import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
+import { useCompactViewport } from '@/hooks/use-compact-viewport';
+import { resolveBirthPlaceFields, resolveReligionField } from '@/lib/birth-place-fields';
 import {
   BarChart,
   Bar,
@@ -44,8 +52,10 @@ import {
   Trash2,
   Save,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { AlumniExportDialog } from '@/components/admin/alumni-export-dialog';
+import { AlumniRecordCard } from '@/components/admin/alumni-record-card';
 import { ChmsuLogo } from '@/components/chmsu-logo';
 import type { AlumniRecord } from '@/types/alumni';
 import type { ExportOptions } from '@/types/export';
@@ -79,6 +89,21 @@ type SortKey = keyof AlumniRecord;
 type SortDir = "asc" | "desc";
 type Tab = "overview" | "records" | "employment" | "education";
 
+const panelClass =
+  'min-w-0 w-full max-w-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6';
+
+const statGridClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4';
+
+function ChartContainer({ height, children }: { height: number; children: ReactNode }) {
+  return (
+    <div className="min-w-0 w-full max-w-full">
+      <div className="w-full" style={{ height }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function StatCard({
   icon,
   label,
@@ -86,7 +111,7 @@ function StatCard({
   sub,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string | number;
   sub?: string;
@@ -96,20 +121,18 @@ function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start gap-4"
+      className="flex min-w-0 items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:gap-4 sm:p-5"
     >
       <div
-        className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12"
         style={{ background: color ?? MAROON }}
       >
         <span className="text-white">{icon}</span>
       </div>
-      <div>
-        <p className="text-gray-500 text-sm">{label}</p>
-        <p className="text-gray-900 mt-0.5" style={{ fontSize: "1.75rem", fontWeight: 800 }}>
-          {value}
-        </p>
-        {sub && <p className="text-gray-400 text-xs mt-0.5">{sub}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-gray-500 sm:text-sm">{label}</p>
+        <p className="mt-0.5 text-2xl font-extrabold text-gray-900 sm:text-[1.75rem]">{value}</p>
+        {sub && <p className="mt-0.5 text-xs text-gray-400 break-words">{sub}</p>}
       </div>
     </motion.div>
   );
@@ -126,138 +149,175 @@ function SortIcon({ col, sortKey, dir }: { col: string; sortKey: string; dir: So
 }
 
 // Detail Modal
-const DetailField = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-    <p className="text-gray-800 text-sm">{value || "—"}</p>
+const adminModalShellClass =
+    'relative flex w-full min-h-0 flex-col overflow-hidden bg-white shadow-2xl max-h-[100dvh] rounded-t-2xl sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl';
+
+const adminModalOverlayClass =
+    'fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4';
+
+const DetailField = ({
+  label,
+  value,
+  icon,
+  fullWidth = false,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+  fullWidth?: boolean;
+}) => (
+  <div className={`min-w-0 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+    {icon ? (
+      <div className="flex min-w-0 gap-2.5">
+        <span className="mt-0.5 flex-shrink-0 text-gray-400">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="mb-0.5 text-xs uppercase tracking-wider text-gray-400">{label}</p>
+          <p className="text-sm break-words text-gray-800 [overflow-wrap:anywhere]">{value || '—'}</p>
+        </div>
+      </div>
+    ) : (
+      <>
+        <p className="mb-0.5 text-xs uppercase tracking-wider text-gray-400">{label}</p>
+        <p className="text-sm break-words text-gray-800 [overflow-wrap:anywhere]">{value || '—'}</p>
+      </>
+    )}
   </div>
 );
 
 function AlumniDetailModal({ record, onClose }: { record: AlumniRecord; onClose: () => void }) {
   const schools = record.schoolAttended ? [record.schoolAttended] : [];
+  const locationLabel = record.locationOfEmployment?.toUpperCase().includes('ABROAD')
+    ? 'Employed Abroad'
+    : record.locationOfEmployment
+      ? 'Employed Locally'
+      : '—';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={adminModalOverlayClass}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`${adminModalShellClass} max-w-2xl`}
       >
         {/* Header */}
-        <div className="bg-[#1A5336] px-6 py-5 flex items-center gap-4 flex-shrink-0">
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg">
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#134026]/30 bg-[#1A5336] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold text-white sm:h-12 sm:w-12">
             {record.name.charAt(0)}
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white truncate" style={{ fontWeight: 700 }}>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-white" style={{ fontWeight: 700 }}>
               {record.name}
             </h3>
-            <p className="text-white/70 text-sm">{record.degree}</p>
+            <p className="truncate text-sm text-white/70">{record.degree || '—'}</p>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white ml-auto">
-            <X size={20} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto flex h-11 w-11 flex-shrink-0 touch-manipulation items-center justify-center rounded-xl text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label="Close"
+          >
+            <X size={22} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-6 space-y-6">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:space-y-6 sm:p-6">
           {/* Personal */}
-          <div>
-            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-[#1A5336]/10 flex items-center justify-center">
-                <span className="text-[#1A5336] text-[8px]">P</span>
+          <section>
+            <h4 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1A5336]">
+              <div className="flex h-4 w-4 items-center justify-center rounded bg-[#1A5336]/10">
+                <span className="text-[8px] text-[#1A5336]">P</span>
               </div>
               Personal Information
             </h4>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="grid grid-cols-1 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
               <DetailField label="Sex" value={record.sex} />
               <DetailField label="Date of Birth" value={record.dateOfBirth} />
               <DetailField label="Age" value={record.age} />
               <DetailField label="Civil Status" value={record.civilStatus} />
               <DetailField label="Religion" value={record.religion} />
-              <DetailField label="Place of Birth" value={record.placeOfBirth} />
-              <div className="col-span-2 flex gap-2">
-                <Mail size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <DetailField label="Email" value={record.email} />
-              </div>
-              <div className="col-span-2 flex gap-2">
-                <Phone size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <DetailField label="Mobile" value={record.mobileNo} />
-              </div>
-              <div className="col-span-2 flex gap-2">
-                <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <DetailField label="Address" value={record.address} />
-              </div>
+              <DetailField label="Place of Birth" value={record.placeOfBirth} fullWidth />
+              <DetailField label="Email" value={record.email} icon={<Mail size={14} />} fullWidth />
+              <DetailField label="Mobile" value={record.mobileNo} icon={<Phone size={14} />} fullWidth />
+              <DetailField label="Address" value={record.address} icon={<MapPin size={14} />} fullWidth />
             </div>
-          </div>
+          </section>
 
           {/* Education */}
-          <div>
-            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">
+          <section>
+            <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#1A5336]">
               Educational Details
             </h4>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
-              <div className="col-span-2">
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Schools Attended</p>
+            <div className="grid grid-cols-1 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <p className="mb-1 text-xs uppercase tracking-wider text-gray-400">Schools Attended</p>
                 <div className="flex flex-wrap gap-2">
                   {schools.length > 0
                     ? schools.map((s) => (
-                        <span key={s as string} className="px-2 py-0.5 bg-[#1A5336]/10 text-[#1A5336] text-xs rounded-full font-medium">
+                        <span
+                          key={s as string}
+                          className="rounded-full bg-[#1A5336]/10 px-2.5 py-1 text-xs font-medium text-[#1A5336]"
+                        >
                           {s}
                         </span>
                       ))
-                    : <span className="text-gray-400 text-sm">—</span>}
+                    : <span className="text-sm text-gray-400">—</span>}
                 </div>
               </div>
               <DetailField label="Campus" value={record.campus} />
               <DetailField label="Year Graduated" value={record.yearGraduated} />
-              <div className="col-span-2">
-                <DetailField label="Degree / Course" value={record.degree} />
-              </div>
+              <DetailField label="Degree / Course" value={record.degree} fullWidth />
               <DetailField label="Highest Attainment" value={record.highestAttainment} />
               <DetailField label="Eligibility" value={record.eligibility} />
             </div>
-          </div>
+          </section>
 
           {/* Employment */}
-          <div>
-            <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">
+          <section>
+            <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#1A5336]">
               Employment Data
             </h4>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="grid grid-cols-1 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
               <DetailField label="Employment Status" value={record.employmentStatus} />
-              <DetailField label="Employment Sector" value={record.employmentSector || "—"} />
-              <DetailField label="Present Status" value={record.presentEmploymentStatus || "—"} />
-              <DetailField label="Year Employed" value={record.yearEmployed || "—"} />
-              <DetailField label="Occupation" value={record.occupation || "—"} />
-              <DetailField label="Position" value={record.position || "—"} />
-              <div className="col-span-2">
-                <DetailField label="Company / Organization Name" value={record.company || "—"} />
-              </div>
-              <div className="col-span-2">
-                <DetailField label="Company / Organization Address" value={record.companyAddress || "—"} />
-              </div>
-              <div className="col-span-2">
-                <DetailField
-                  label="Location"
-                  value={
-                    record.locationOfEmployment?.toUpperCase().includes("ABROAD")
-                      ? "Employed Abroad"
-                      : record.locationOfEmployment
-                      ? "Employed Locally"
-                      : "—"
-                  }
-                />
-              </div>
+              <DetailField label="Employment Sector" value={record.employmentSector || '—'} />
+              <DetailField label="Present Status" value={record.presentEmploymentStatus || '—'} />
+              <DetailField label="Year Employed" value={record.yearEmployed || '—'} />
+              <DetailField label="Occupation" value={record.occupation || '—'} />
+              <DetailField label="Position" value={record.position || '—'} />
+              <DetailField label="Company / Organization Name" value={record.company || '—'} fullWidth />
+              <DetailField
+                label="Company / Organization Address"
+                value={record.companyAddress || '—'}
+                fullWidth
+              />
+              <DetailField label="Location" value={locationLabel} fullWidth />
             </div>
-          </div>
+          </section>
 
           {/* Meta */}
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Calendar size={12} />
-            Submitted: {new Date(record.submittedAt).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
+          <div className="flex items-start gap-2 text-xs text-gray-400">
+            <Calendar size={12} className="mt-0.5 flex-shrink-0" />
+            <span className="break-words">
+              Submitted:{' '}
+              {new Date(record.submittedAt).toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </span>
           </div>
+        </div>
+
+        {/* Footer — easy to reach on mobile */}
+        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full touch-manipulation rounded-xl bg-[#1A5336] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#134026]"
+          >
+            Close
+          </button>
         </div>
       </motion.div>
     </div>
@@ -269,15 +329,77 @@ const editInputClass = "w-full px-3 py-2 rounded-lg border border-gray-200 focus
 const editSelectClass = "w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-sm appearance-none bg-white";
 const editLabelClass = "block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1";
 
+function EditInputField({
+  label,
+  value,
+  onChange,
+  error,
+  type = 'text',
+  placeholder = '',
+  upperCase = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  type?: string;
+  placeholder?: string;
+  upperCase?: boolean;
+}) {
+  return (
+    <div>
+      <label className={editLabelClass}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) =>
+          onChange(upperCase ? event.target.value.toUpperCase() : event.target.value)
+        }
+        className={editInputClass}
+        placeholder={placeholder}
+      />
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+const EMPLOYMENT_SECTORS = [
+  'GOVERNMENT',
+  'PRIVATE',
+  'ENGAGED IN ENTREPRENEURIAL / FREELANCE WORK',
+] as const;
+
+const PRESENT_EMPLOYMENT_STATUSES = [
+  'REGULAR',
+  'PROBATIONARY',
+  'CASUAL',
+  'JOB ORDER',
+  'SELF-EMPLOYED',
+] as const;
+
+const EMPLOYMENT_LOCATIONS = [
+  'EMPLOYED LOCALLY, INCLUDING THOSE WITH FOREIGN EMPLOYERS IN THE PHILIPPINES',
+  'EMPLOYED ABROAD',
+] as const;
+
+const EDIT_YEAR_OPTIONS = Array.from({ length: 60 }, (_, index) => new Date().getFullYear() - index);
+
 interface EditFormData {
   name: string;
   sex: string;
   date_of_birth: string;
+  birth_province: string;
+  birth_province_custom: string;
+  birth_city: string;
+  birth_city_custom: string;
   mobile_no: string;
   address: string;
   civil_status: string;
   religion: string;
+  religion_other: string;
   email: string;
+  campus: string;
+  school_attended: string;
   year_graduated: string;
   highest_attainment: string;
   eligibility: string;
@@ -300,15 +422,25 @@ function AlumniEditModal({
   record: AlumniRecord;
   onClose: () => void;
 }) {
+  const initialBirth = resolveBirthPlaceFields(record.birthProvince, record.birthCity);
+  const initialReligion = resolveReligionField(record.religion);
+
   const [form, setForm] = useState<EditFormData>({
     name: record.name,
     sex: record.sex,
     date_of_birth: record.dateOfBirth,
+    birth_province: initialBirth.birthProvince,
+    birth_province_custom: initialBirth.birthProvinceOther,
+    birth_city: initialBirth.birthCity,
+    birth_city_custom: initialBirth.birthCityOther,
     mobile_no: record.mobileNo,
     address: record.address,
     civil_status: record.civilStatus,
-    religion: record.religion,
+    religion: initialReligion.religion,
+    religion_other: initialReligion.religionOther,
     email: record.email,
+    campus: record.campus,
+    school_attended: record.schoolAttended,
     year_graduated: record.yearGraduated,
     highest_attainment: record.highestAttainment,
     eligibility: record.eligibility,
@@ -326,9 +458,38 @@ function AlumniEditModal({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const showEmploymentDetails =
+    form.employment_status === 'YES' || form.employment_status === 'BUSINESS OWNER';
+  const isEmployed = form.employment_status === 'YES';
+
+  const provinceIsOthers = form.birth_province === SELECT_OTHERS;
+  const cityIsOthers = form.birth_city === SELECT_OTHERS;
+  const religionIsOthers = form.religion === SELECT_OTHERS;
+  const isChmsu = form.school_attended === 'CHMSU';
+  const campusSchools = schoolsForCampus(form.campus);
+  const availableCities = form.birth_province && !provinceIsOthers
+    ? PHILIPPINE_LOCATIONS[form.birth_province] ?? []
+    : [];
+
+  useEffect(() => {
+    if (!form.birth_province || provinceIsOthers) {
+      return;
+    }
+
+    const cities = PHILIPPINE_LOCATIONS[form.birth_province] ?? [];
+    if (form.birth_city && form.birth_city !== SELECT_OTHERS && !cities.includes(form.birth_city)) {
+      setForm((prev) => ({ ...prev, birth_city: '', birth_city_custom: '' }));
+    }
+  }, [form.birth_province, form.birth_city, provinceIsOthers]);
+
   const handleChange = (field: keyof EditFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      delete next.birth_city_id;
+      return next;
+    });
   };
 
   const handleSave = () => {
@@ -348,30 +509,16 @@ function AlumniEditModal({
     );
   };
 
-  const InputField = ({ label, field, type = "text", placeholder = "" }: { label: string; field: keyof EditFormData; type?: string; placeholder?: string }) => (
-    <div>
-      <label className={editLabelClass}>{label}</label>
-      <input
-        type={type}
-        value={form[field]}
-        onChange={(e) => handleChange(field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
-        className={editInputClass}
-        placeholder={placeholder}
-      />
-      {errors[field] && <p className="text-red-500 text-xs mt-1">{errors[field]}</p>}
-    </div>
-  );
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={adminModalOverlayClass}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+        className={`${adminModalShellClass} max-w-3xl`}
       >
         {/* Header */}
-        <div className="bg-[#1A5336] px-6 py-5 flex items-center gap-4 flex-shrink-0">
+        <div className="bg-[#1A5336] px-4 py-4 sm:px-6 sm:py-5 flex items-center gap-4 flex-shrink-0">
           <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <Pencil size={18} className="text-white" />
           </div>
@@ -385,13 +532,20 @@ function AlumniEditModal({
         </div>
 
         {/* Form */}
-        <div className="overflow-y-auto p-6 space-y-6">
+        <div className="overflow-y-auto p-4 sm:p-6 space-y-6">
           {/* Personal */}
           <div>
             <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Personal Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <InputField label="Full Name" field="name" placeholder="JUAN DELA CRUZ" />
+                <EditInputField
+                  label="Full Name"
+                  value={form.name}
+                  onChange={(value) => handleChange('name', value)}
+                  error={errors.name}
+                  placeholder="JUAN DELA CRUZ"
+                  upperCase
+                />
               </div>
               <div>
                 <label className={editLabelClass}>Sex</label>
@@ -408,12 +562,145 @@ function AlumniEditModal({
                   ))}
                 </select>
               </div>
-              <InputField label="Date of Birth" field="date_of_birth" type="date" />
-              <InputField label="Mobile No." field="mobile_no" placeholder="09xxxxxxxxx" />
-              <InputField label="Religion" field="religion" />
-              <InputField label="Email" field="email" type="email" />
+              <EditInputField
+                label="Date of Birth"
+                value={form.date_of_birth}
+                onChange={(value) => handleChange('date_of_birth', value)}
+                error={errors.date_of_birth}
+                type="date"
+              />
               <div className="md:col-span-2">
-                <InputField label="Address" field="address" />
+                <label className={editLabelClass}>Place of Birth</label>
+                <p className="text-xs text-gray-500 mb-2">Select province first to load cities and municipalities.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={editLabelClass}>Province</label>
+                    <SearchableSelect
+                      value={form.birth_province}
+                      onChange={(value) => {
+                        handleChange('birth_province', value);
+                        handleChange('birth_province_custom', '');
+                        if (value === SELECT_OTHERS) {
+                          handleChange('birth_city', SELECT_OTHERS);
+                        } else {
+                          handleChange('birth_city', '');
+                        }
+                        handleChange('birth_city_custom', '');
+                      }}
+                      options={PHILIPPINE_PROVINCES}
+                      placeholder="SELECT PROVINCE"
+                      error={errors.birth_province || errors.birth_city_id}
+                      triggerClassName={editSelectClass}
+                    />
+                    {provinceIsOthers && (
+                      <input
+                        type="text"
+                        value={form.birth_province_custom}
+                        onChange={(e) => handleChange('birth_province_custom', e.target.value.toUpperCase())}
+                        className={`${editInputClass} mt-2`}
+                        placeholder="SPECIFY PROVINCE"
+                      />
+                    )}
+                    {errors.birth_province_custom && (
+                      <p className="text-red-500 text-xs mt-1">{errors.birth_province_custom}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={editLabelClass}>City / Municipality</label>
+                    {provinceIsOthers ? (
+                      <input
+                        type="text"
+                        value={form.birth_city_custom}
+                        onChange={(e) => {
+                          handleChange('birth_city_custom', e.target.value.toUpperCase());
+                          handleChange('birth_city', SELECT_OTHERS);
+                        }}
+                        className={editInputClass}
+                        placeholder="SPECIFY CITY / MUNICIPALITY"
+                      />
+                    ) : (
+                      <>
+                        <SearchableSelect
+                          value={form.birth_city}
+                          onChange={(value) => {
+                            handleChange('birth_city', value);
+                            handleChange('birth_city_custom', '');
+                          }}
+                          options={availableCities}
+                          placeholder={form.birth_province ? 'SELECT CITY / MUNICIPALITY' : 'SELECT PROVINCE FIRST'}
+                          disabled={!form.birth_province}
+                          error={errors.birth_city}
+                          triggerClassName={editSelectClass}
+                        />
+                        {cityIsOthers && (
+                          <input
+                            type="text"
+                            value={form.birth_city_custom}
+                            onChange={(e) => handleChange('birth_city_custom', e.target.value.toUpperCase())}
+                            className={`${editInputClass} mt-2`}
+                            placeholder="SPECIFY CITY / MUNICIPALITY"
+                          />
+                        )}
+                      </>
+                    )}
+                    {errors.birth_city_custom && (
+                      <p className="text-red-500 text-xs mt-1">{errors.birth_city_custom}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <EditInputField
+                label="Mobile No."
+                value={form.mobile_no}
+                onChange={(value) => handleChange('mobile_no', value)}
+                error={errors.mobile_no}
+                placeholder="09xxxxxxxxx"
+              />
+              <div>
+                <label className={editLabelClass}>Religion</label>
+                <SearchableSelect
+                  value={form.religion}
+                  onChange={(value) => {
+                    handleChange('religion', value);
+                    handleChange('religion_other', '');
+                  }}
+                  options={RELIGIONS}
+                  placeholder="SELECT RELIGION"
+                  error={errors.religion}
+                  triggerClassName={editSelectClass}
+                />
+                {religionIsOthers && (
+                  <input
+                    type="text"
+                    value={form.religion_other}
+                    onChange={(e) => handleChange('religion_other', e.target.value.toUpperCase())}
+                    className={`${editInputClass} mt-2`}
+                    placeholder="SPECIFY RELIGION"
+                  />
+                )}
+                {errors.religion_other && (
+                  <p className="text-red-500 text-xs mt-1">{errors.religion_other}</p>
+                )}
+              </div>
+              <div>
+                <label className={editLabelClass}>Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  className={editInputClass}
+                  placeholder="your@email.com (optional)"
+                />
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <EditInputField
+                  label="Address"
+                  value={form.address}
+                  onChange={(value) => handleChange('address', value)}
+                  error={errors.address}
+                  upperCase
+                />
               </div>
             </div>
           </div>
@@ -422,8 +709,105 @@ function AlumniEditModal({
           <div>
             <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Educational Details</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="Year Graduated" field="year_graduated" placeholder="2024" />
-              <InputField label="Degree / Course" field="degree" />
+              <div>
+                <label className={editLabelClass}>Campus</label>
+                <select
+                  value={form.campus}
+                  onChange={(e) => {
+                    const campus = e.target.value;
+                    handleChange('campus', campus);
+                    if (!schoolsForCampus(campus).includes(form.school_attended)) {
+                      handleChange('school_attended', '');
+                      handleChange('degree', '');
+                    }
+                  }}
+                  className={editSelectClass}
+                >
+                  <option value="">SELECT CAMPUS</option>
+                  {CAMPUSES.map((campus) => (
+                    <option key={campus} value={campus}>
+                      {campus}
+                    </option>
+                  ))}
+                </select>
+                {errors.campus && <p className="text-red-500 text-xs mt-1">{errors.campus}</p>}
+              </div>
+              <div>
+                <label className={editLabelClass}>Year Graduated</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={GRADUATION_YEAR_START}
+                  max={new Date().getFullYear()}
+                  value={form.year_graduated}
+                  onChange={(e) => handleChange('year_graduated', e.target.value)}
+                  className={editInputClass}
+                  placeholder="E.G. 2024"
+                />
+                {errors.year_graduated && (
+                  <p className="text-red-500 text-xs mt-1">{errors.year_graduated}</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className={editLabelClass}>School Attended</label>
+                <select
+                  value={form.school_attended}
+                  onChange={(e) => {
+                    handleChange('school_attended', e.target.value);
+                    if (e.target.value !== 'CHMSU') {
+                      handleChange('degree', form.degree);
+                    } else {
+                      handleChange('degree', '');
+                    }
+                  }}
+                  className={editSelectClass}
+                  disabled={!form.campus}
+                >
+                  <option value="">{form.campus ? 'SELECT SCHOOL' : 'SELECT CAMPUS FIRST'}</option>
+                  {campusSchools.map((school) => (
+                    <option key={school} value={school}>
+                      {school}
+                    </option>
+                  ))}
+                </select>
+                {(errors.school_attended || errors.school_id) && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.school_attended || errors.school_id}
+                  </p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className={editLabelClass}>Degree / Course</label>
+                {isChmsu ? (
+                  <select
+                    value={form.degree}
+                    onChange={(e) => handleChange('degree', e.target.value)}
+                    className={editSelectClass}
+                    disabled={!form.campus}
+                  >
+                    <option value="">
+                      {form.campus ? 'SELECT DEGREE / COURSE' : 'CAMPUS NOT ON FILE'}
+                    </option>
+                    {form.campus &&
+                      CAMPUS_PROGRAMS[form.campus]?.map((program) => (
+                        <option key={program} value={program}>
+                          {program}
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={form.degree}
+                    onChange={(e) => handleChange('degree', e.target.value.toUpperCase())}
+                    className={editInputClass}
+                    placeholder="E.G. BACHELOR OF SCIENCE IN INFORMATION SYSTEMS"
+                  />
+                )}
+                {(errors.degree || errors.program_id) && (
+                  <p className="text-red-500 text-xs mt-1">{errors.degree || errors.program_id}</p>
+                )}
+              </div>
               <div>
                 <label className={editLabelClass}>Highest Attainment</label>
                 <select value={form.highest_attainment} onChange={(e) => handleChange("highest_attainment", e.target.value)} className={editSelectClass}>
@@ -432,7 +816,13 @@ function AlumniEditModal({
                   ))}
                 </select>
               </div>
-              <InputField label="Eligibility" field="eligibility" />
+              <EditInputField
+                label="Eligibility"
+                value={form.eligibility}
+                onChange={(value) => handleChange('eligibility', value)}
+                error={errors.eligibility}
+                upperCase
+              />
             </div>
           </div>
 
@@ -440,40 +830,147 @@ function AlumniEditModal({
           <div>
             <h4 className="text-[#1A5336] text-xs font-bold uppercase tracking-wider mb-3">Employment Data</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={editLabelClass}>Employment Status</label>
+              <div className="md:col-span-2">
+                <label className={editLabelClass}>Are you presently employed?</label>
                 <select value={form.employment_status} onChange={(e) => handleChange("employment_status", e.target.value)} className={editSelectClass}>
                   {["YES", "NO", "BUSINESS OWNER", "RETIRED"].map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </div>
-              <InputField label="Employment Sector" field="employment_sector" />
-              <InputField label="Present Employment Status" field="present_employment_status" />
-              <InputField label="Occupation" field="occupation" />
-              <InputField label="Position" field="position" />
-              <InputField label="Year Employed" field="year_employed" />
-              <InputField label="Company / Organization" field="company" />
-              <InputField label="Company Address" field="company_address" />
-              <div className="md:col-span-2">
-                <InputField label="Location of Employment" field="location_of_employment" />
-              </div>
+
+              {form.employment_status === 'BUSINESS OWNER' && (
+                <>
+                  <EditInputField
+                    label="Company / Business Name"
+                    value={form.company}
+                    onChange={(value) => handleChange('company', value)}
+                    error={errors.company}
+                    upperCase
+                  />
+                  <EditInputField
+                    label="Company / Business Address"
+                    value={form.company_address}
+                    onChange={(value) => handleChange('company_address', value)}
+                    error={errors.company_address}
+                    upperCase
+                  />
+                </>
+              )}
+
+              {showEmploymentDetails && form.employment_status !== 'BUSINESS OWNER' && (
+                <>
+                  {isEmployed && (
+                    <div className="md:col-span-2">
+                      <label className={editLabelClass}>Employment Sector</label>
+                      <select
+                        value={form.employment_sector}
+                        onChange={(e) => handleChange('employment_sector', e.target.value)}
+                        className={editSelectClass}
+                      >
+                        <option value="">SELECT SECTOR</option>
+                        {EMPLOYMENT_SECTORS.map((sector) => (
+                          <option key={sector} value={sector}>
+                            {sector}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.employment_sector && (
+                        <p className="text-red-500 text-xs mt-1">{errors.employment_sector}</p>
+                      )}
+                    </div>
+                  )}
+                  <div className="md:col-span-2">
+                    <label className={editLabelClass}>Present Employment Status</label>
+                    <select
+                      value={form.present_employment_status}
+                      onChange={(e) => handleChange('present_employment_status', e.target.value)}
+                      className={editSelectClass}
+                    >
+                      <option value="">SELECT STATUS</option>
+                      {PRESENT_EMPLOYMENT_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.present_employment_status && (
+                      <p className="text-red-500 text-xs mt-1">{errors.present_employment_status}</p>
+                    )}
+                  </div>
+                  <EditInputField
+                    label="Present Occupation"
+                    value={form.occupation}
+                    onChange={(value) => handleChange('occupation', value)}
+                    error={errors.occupation}
+                    upperCase
+                  />
+                  <EditInputField
+                    label="Position / Designation"
+                    value={form.position}
+                    onChange={(value) => handleChange('position', value)}
+                    error={errors.position}
+                    upperCase
+                  />
+                  <div>
+                    <label className={editLabelClass}>Year Employed</label>
+                    <select
+                      value={form.year_employed}
+                      onChange={(e) => handleChange('year_employed', e.target.value)}
+                      className={editSelectClass}
+                    >
+                      <option value="">SELECT YEAR</option>
+                      {EDIT_YEAR_OPTIONS.map((year) => (
+                        <option key={year} value={String(year)}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={editLabelClass}>Location of Employment</label>
+                    <select
+                      value={form.location_of_employment}
+                      onChange={(e) => handleChange('location_of_employment', e.target.value)}
+                      className={editSelectClass}
+                    >
+                      <option value="">SELECT LOCATION</option>
+                      {EMPLOYMENT_LOCATIONS.map((location) => (
+                        <option key={location} value={location}>
+                          {location === 'EMPLOYED ABROAD'
+                            ? 'EMPLOYED ABROAD'
+                            : 'EMPLOYED LOCALLY (INCL. FOREIGN EMPLOYERS IN PH)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <EditInputField
+                      label="Name of Company / Organization"
+                      value={form.company}
+                      onChange={(value) => handleChange('company', value)}
+                      error={errors.company}
+                      upperCase
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 px-6 py-4 flex items-center justify-end gap-3 flex-shrink-0 bg-gray-50">
+        <div className="border-t border-gray-100 px-4 py-4 sm:px-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 flex-shrink-0 bg-gray-50">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1A5336] text-white hover:bg-[#134026] text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+            className="flex w-full sm:w-auto items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1A5336] text-white hover:bg-[#134026] text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
           >
             <Save size={15} />
             {saving ? "Saving..." : "Save Changes"}
@@ -506,14 +1003,14 @@ function DeleteConfirmModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={adminModalOverlayClass}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="relative w-full max-w-md overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
       >
-        <div className="p-6 text-center">
+        <div className="p-5 sm:p-6 text-center">
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
             <AlertTriangle size={28} className="text-red-500" />
           </div>
@@ -527,17 +1024,17 @@ function DeleteConfirmModal({
           <p className="text-red-500 text-xs mb-6">
             This action cannot be undone.
           </p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 justify-center">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+              className="flex w-full sm:w-auto items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
             >
               <Trash2 size={15} />
               {deleting ? "Deleting..." : "Delete"}
@@ -572,8 +1069,16 @@ interface DashboardProps {
 }
 
 export default function AdminDashboard({ records, analytics, exportOptions }: DashboardProps) {
-  const { auth } = usePage<SharedData>().props;
+  const isCompact = useCompactViewport();
+  const sectorChartYAxisWidth = isCompact ? 56 : 100;
+  const degreeChartYAxisWidth = isCompact ? 72 : 130;
+  const pieSliceLabel = isCompact
+    ? false
+    : ({ name, percent }: { name: string; percent?: number }) =>
+        `${name} ${((percent ?? 0) * 100).toFixed(0)}%`;
+  const { auth, flash } = usePage<SharedData & { flash?: { success?: string | boolean } }>().props;
   const [tab, setTab] = useState<Tab>("overview");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -588,6 +1093,23 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   const [filterSector, setFilterSector] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
+
+  useEffect(() => {
+    if (!flash?.success) {
+      return;
+    }
+
+    const message =
+      typeof flash.success === 'string'
+        ? flash.success
+        : 'Changes saved successfully.';
+
+    setSuccessMessage(message);
+
+    const timer = window.setTimeout(() => setSuccessMessage(null), 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [flash?.success]);
 
   const handleLogout = () => {
     router.post(route('logout'));
@@ -613,7 +1135,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
         (r) =>
           r.name.toLowerCase().includes(q) ||
           r.degree.toLowerCase().includes(q) ||
-          r.email.toLowerCase().includes(q) ||
+          (r.email ?? '').toLowerCase().includes(q) ||
           r.campus.toLowerCase().includes(q) ||
           r.occupation.toLowerCase().includes(q)
       );
@@ -649,7 +1171,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   const totalPages = Math.ceil(filteredRecords.length / PAGE_SIZE);
   const paginatedRecords = filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const navItems: { id: Tab; label: string; icon: ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <Home size={18} /> },
     { id: "records", label: "Alumni Records", icon: <List size={18} /> },
     { id: "employment", label: "Employment Analytics", icon: <Briefcase size={18} /> },
@@ -659,7 +1181,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
   return (
     <>
       <Head title="Admin Dashboard" />
-    <motion.div className="flex min-h-screen bg-gray-50">
+    <motion.div className="flex min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-gray-50">
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col w-64 bg-[#1A5336] shadow-2xl transition-transform duration-300 ${
@@ -679,11 +1201,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
               <img src={alumniLogo} alt="Alumni Logo" className="w-full h-full object-contain rounded-full" />
             </div>
           </div>
-          <div>
-            <p className="text-white text-sm" style={{ fontWeight: 700 }}>
-              CHMSU
-            </p>
-            <p className="text-white/60 text-xs">Alumni Directory</p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">CHMSU</p>
+            <p className="text-xs text-white/60">Alumni Directory</p>
           </div>
           <button
             className="ml-auto lg:hidden text-white/60 hover:text-white"
@@ -766,20 +1286,24 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      <div className="flex min-h-screen min-w-0 w-full flex-1 flex-col lg:ml-64">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-20 shadow-sm">
+        <header className="sticky top-0 z-20 flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-sm sm:gap-4 sm:px-6 sm:py-4">
           <button
-            className="lg:hidden text-gray-500 hover:text-gray-800"
+            type="button"
+            className="flex h-10 w-10 flex-shrink-0 touch-manipulation items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 lg:hidden"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
           >
             <Menu size={22} />
           </button>
-          <div>
-            <h1 className="text-gray-900" style={{ fontSize: "1.125rem", fontWeight: 700 }}>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-bold text-gray-900 sm:text-lg">
               {navItems.find((n) => n.id === tab)?.label}
             </h1>
-            <p className="text-gray-400 text-xs">CHMSU Alumni Online Directory — Admin Portal</p>
+            <p className="hidden truncate text-xs text-gray-400 sm:block">
+              CHMSU Alumni Online Directory — Admin Portal
+            </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#1A5336]/5 rounded-full border border-[#1A5336]/20">
@@ -797,12 +1321,30 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-6 space-y-6">
+        <main className="min-w-0 w-full max-w-full flex-1 space-y-6 overflow-x-hidden p-4 sm:p-6">
+          {successMessage && (
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-sm"
+            >
+              <CheckCircle size={18} className="mt-0.5 flex-shrink-0 text-green-600" />
+              <p className="flex-1 font-medium">{successMessage}</p>
+              <button
+                type="button"
+                onClick={() => setSuccessMessage(null)}
+                className="rounded-lg p-1 text-green-700 transition-colors hover:bg-green-100"
+                aria-label="Dismiss notification"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {/* ====== OVERVIEW TAB ====== */}
           {tab === "overview" && (
             <div className="space-y-6">
               {/* Stat Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={statGridClass}>
                 <StatCard
                   icon={<Users size={22} />}
                   label="Total Alumni"
@@ -833,36 +1375,39 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
                 {/* Alumni by Year Graduated */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <h3 className="text-gray-900 mb-4" style={{ fontWeight: 700 }}>
+                <div className={panelClass}>
+                  <h3 className="mb-4 font-bold text-gray-900">
                     Alumni by Graduation Year
                   </h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={analytics.byYear} margin={{ left: -20 }}>
+                  <ChartContainer height={isCompact ? 200 : 220}>
+                    <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.byYear} margin={{ left: isCompact ? 0 : -20, right: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
+                      <XAxis dataKey="year" tick={{ fontSize: isCompact ? 9 : 11 }} />
+                      <YAxis tick={{ fontSize: isCompact ? 9 : 11 }} width={isCompact ? 28 : 40} />
                       <Tooltip content={CustomTooltip} />
                       <Bar dataKey="count" name="Alumni" fill={MAROON} radius={[4, 4, 0, 0]} />
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
 
                 {/* Employment Status */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <h3 className="text-gray-900 mb-4" style={{ fontWeight: 700 }}>
+                <div className={panelClass}>
+                  <h3 className="mb-4 font-bold text-gray-900">
                     Employment Status
                   </h3>
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ChartContainer height={isCompact ? 220 : 240}>
+                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={analytics.empStatusData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={55}
-                        outerRadius={90}
+                        innerRadius={isCompact ? 45 : 55}
+                        outerRadius={isCompact ? 72 : 90}
                         paddingAngle={3}
                         dataKey="value"
                       >
@@ -874,17 +1419,21 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       <Legend
                         iconType="circle"
                         iconSize={8}
-                        formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>}
+                        layout={isCompact ? 'horizontal' : 'horizontal'}
+                        verticalAlign="bottom"
+                        wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                        formatter={(v) => <span className="text-xs">{v}</span>}
                       />
                     </PieChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
               </div>
 
               {/* Recent Registrations */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+              <div className={panelClass}>
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="font-bold text-gray-900">
                     Recent Registrations
                   </h3>
                   <button
@@ -894,7 +1443,44 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                     View all →
                   </button>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="md:hidden space-y-3">
+                  {[...records]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+                    )
+                    .slice(0, 5)
+                    .map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setSelectedRecord(r)}
+                        className="w-full rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-left transition-colors hover:bg-gray-50"
+                      >
+                        <p className="font-semibold text-gray-900 truncate">{r.name}</p>
+                        <p className="mt-1 text-xs text-gray-500 truncate">{r.degree || "—"}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              r.employmentStatus === "YES"
+                                ? "bg-green-50 text-green-700"
+                                : r.employmentStatus === "NO"
+                                ? "bg-red-50 text-red-700"
+                                : r.employmentStatus === "BUSINESS OWNER"
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            {r.employmentStatus}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(r.submittedAt).toLocaleDateString("en-PH")}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-100">
@@ -948,9 +1534,9 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
           {tab === "records" && (
             <div className="space-y-5">
               {/* Search & Filters */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
+              <div className={panelClass}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-row">
+                  <div className="relative sm:col-span-2 lg:col-span-1 lg:flex-1">
                     <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
@@ -960,7 +1546,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                         setPage(1);
                       }}
                       placeholder="Search alumni records..."
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-sm"
+                      className="w-full min-h-11 pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5336]/20 focus:border-[#1A5336] text-base sm:text-sm"
                     />
                   </div>
                   <select
@@ -1040,8 +1626,27 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 </div>
               </div>
 
-              {/* Table */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* Records: cards on mobile, table on md+ */}
+              <div className="space-y-4">
+                <div className="md:hidden space-y-3">
+                  {paginatedRecords.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center text-sm text-gray-400">
+                      No records found.
+                    </div>
+                  ) : (
+                    paginatedRecords.map((r) => (
+                      <AlumniRecordCard
+                        key={r.id}
+                        record={r}
+                        onView={() => setSelectedRecord(r)}
+                        onEdit={() => setEditRecord(r)}
+                        onDelete={() => setDeleteRecord(r)}
+                      />
+                    ))
+                  )}
+                </div>
+
+                <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
@@ -1130,18 +1735,19 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                     </tbody>
                   </table>
                 </div>
+                </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-                    <p className="text-gray-500 text-xs">
+                  <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-center text-gray-500 text-xs sm:text-left">
                       Page {page} of {totalPages} ({filteredRecords.length} records)
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
                         onClick={() => setPage(Math.max(1, page - 1))}
                         disabled={page === 1}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors"
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors touch-manipulation"
                       >
                         <ChevronLeft size={14} />
                         Prev
@@ -1158,10 +1764,10 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                           <button
                             key={p}
                             onClick={() => setPage(p)}
-                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                            className={`min-h-9 min-w-9 rounded-lg text-xs font-medium transition-colors touch-manipulation ${
                               p === page
                                 ? "bg-[#1A5336] text-white shadow-sm"
-                                : "text-gray-600 hover:bg-white border border-gray-200"
+                                : "text-gray-600 hover:bg-gray-50 border border-gray-200"
                             }`}
                           >
                             {p}
@@ -1172,7 +1778,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       <button
                         onClick={() => setPage(Math.min(totalPages, page + 1))}
                         disabled={page === totalPages}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors"
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors touch-manipulation"
                       >
                         Next
                         <ChevronRight size={14} />
@@ -1188,7 +1794,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
           {tab === "employment" && (
             <div className="space-y-6">
               {/* Summary cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={statGridClass}>
                 <StatCard
                   icon={<Building size={22} />}
                   label="Government"
@@ -1221,20 +1827,21 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
                 {/* Sector Chart */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className={panelClass}>
+                  <div className="mb-4 flex items-center gap-2">
                     <BarChart2 size={18} className="text-[#1A5336]" />
-                    <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+                    <h3 className="font-bold text-gray-900">
                       Employment by Sector
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={analytics.bySector} layout="vertical" margin={{ left: 20, right: 20 }}>
+                  <ChartContainer height={isCompact ? 220 : 240}>
+                    <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.bySector} layout="vertical" margin={{ left: 4, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                      <XAxis type="number" tick={{ fontSize: isCompact ? 9 : 11 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: isCompact ? 9 : 11 }} width={sectorChartYAxisWidth} />
                       <Tooltip content={CustomTooltip} />
                       <Bar dataKey="value" name="Alumni" radius={[0, 4, 4, 0]}>
                         {analytics.bySector.map((entry, i) => (
@@ -1242,31 +1849,31 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                         ))}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
 
                 {/* Location Chart */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className={panelClass}>
+                  <div className="mb-4 flex items-center gap-2">
                     <MapPin size={18} className="text-[#1A5336]" />
-                    <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+                    <h3 className="font-bold text-gray-900">
                       Local vs. Abroad
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={240}>
+                  <ChartContainer height={isCompact ? 220 : 240}>
+                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={analytics.locationData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={100}
+                        innerRadius={isCompact ? 50 : 65}
+                        outerRadius={isCompact ? 78 : 100}
                         paddingAngle={4}
                         dataKey="value"
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(0)}%`
-                        }
-                        labelLine={false}
+                        label={pieSliceLabel}
+                        labelLine={!isCompact}
                       >
                         {analytics.locationData.map((entry, i) => (
                           <Cell key={`emp-loc-cell-${i}-${entry._uid}`} fill={[MAROON, "#9333ea"][i]} />
@@ -1276,19 +1883,22 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       <Legend
                         iconType="circle"
                         iconSize={8}
-                        formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>}
+                        verticalAlign="bottom"
+                        wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                        formatter={(v) => <span className="text-xs">{v}</span>}
                       />
                     </PieChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
               </div>
 
               {/* Employment Status Breakdown */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-gray-900 mb-5" style={{ fontWeight: 700 }}>
+              <div className={panelClass}>
+                <h3 className="mb-5 font-bold text-gray-900">
                   Employment Status Breakdown
                 </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                   {[
                     {
                       label: "Regular",
@@ -1333,17 +1943,17 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   ].map((item) => (
                     <div
                       key={item.label}
-                      className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50"
+                      className="flex min-w-0 items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:p-4"
                     >
                       <div
-                        className="w-3 h-8 rounded-full flex-shrink-0"
+                        className="h-8 w-3 flex-shrink-0 rounded-full"
                         style={{ background: item.color }}
                       />
-                      <div>
-                        <p className="text-gray-900 font-bold" style={{ fontSize: "1.25rem" }}>
+                      <div className="min-w-0">
+                        <p className="text-xl font-bold text-gray-900 sm:text-2xl">
                           {item.count}
                         </p>
-                        <p className="text-gray-500 text-xs">{item.label}</p>
+                        <p className="text-xs text-gray-500 break-words">{item.label}</p>
                       </div>
                     </div>
                   ))}
@@ -1355,7 +1965,7 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
           {/* ====== EDUCATION ANALYTICS TAB ====== */}
           {tab === "education" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={statGridClass}>
                 <StatCard
                   icon={<GraduationCap size={22} />}
                   label="Total Alumni"
@@ -1386,20 +1996,21 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
                 {/* By Degree */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className={panelClass}>
+                  <div className="mb-4 flex items-center gap-2">
                     <GraduationCap size={18} className="text-[#1A5336]" />
-                    <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+                    <h3 className="font-bold text-gray-900">
                       Top Degree Programs
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={analytics.byDegree} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <ChartContainer height={isCompact ? 240 : 260}>
+                    <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.byDegree} layout="vertical" margin={{ left: 4, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={130} />
+                      <XAxis type="number" tick={{ fontSize: isCompact ? 9 : 11 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: isCompact ? 8 : 10 }} width={degreeChartYAxisWidth} />
                       <Tooltip content={CustomTooltip} />
                       <Bar dataKey="count" name="Alumni" radius={[0, 4, 4, 0]}>
                         {analytics.byDegree.map((entry, i) => (
@@ -1407,31 +2018,31 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                         ))}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
 
                 {/* Attainment Pie */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className={panelClass}>
+                  <div className="mb-4 flex items-center gap-2">
                     <Award size={18} className="text-[#1A5336]" />
-                    <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+                    <h3 className="font-bold text-gray-900">
                       Highest Educational Attainment
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ChartContainer height={isCompact ? 240 : 260}>
+                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={analytics.byAttainment}
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={100}
+                        innerRadius={isCompact ? 50 : 65}
+                        outerRadius={isCompact ? 78 : 100}
                         paddingAngle={4}
                         dataKey="value"
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(0)}%`
-                        }
-                        labelLine={true}
+                        label={pieSliceLabel}
+                        labelLine={!isCompact}
                       >
                         {analytics.byAttainment.map((entry, i) => (
                           <Cell key={`edu-att-cell-${i}-${entry._uid}`} fill={[MAROON, GOLD, "#9333ea"][i % 3]} />
@@ -1441,19 +2052,22 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                       <Legend
                         iconType="circle"
                         iconSize={8}
-                        formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>}
+                        verticalAlign="bottom"
+                        wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                        formatter={(v) => <span className="text-xs">{v}</span>}
                       />
                     </PieChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
               </div>
 
               {/* Schools Attended */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-gray-900 mb-5" style={{ fontWeight: 700 }}>
+              <div className={panelClass}>
+                <h3 className="mb-5 font-bold text-gray-900">
                   Schools Attended by Alumni
                 </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                   {[
                     { school: 'BCNTS', count: analytics.schoolCounts.BCNTS ?? 0, color: '#1A5336' },
                     { school: 'PSC', count: analytics.schoolCounts.PSC ?? 0, color: '#FFB81C' },
@@ -1466,36 +2080,38 @@ export default function AdminDashboard({ records, analytics, exportOptions }: Da
                   ].map((item) => (
                     <div
                       key={item.school}
-                      className="p-6 rounded-2xl text-center border-2"
+                      className="min-w-0 rounded-2xl border-2 p-4 text-center sm:p-6"
                       style={{ borderColor: `${item.color}20`, background: `${item.color}05` }}
                     >
                       <p
-                        className="mb-1"
-                        style={{ fontSize: "2.25rem", fontWeight: 800, color: item.color }}
+                        className="mb-1 text-3xl font-extrabold sm:text-4xl"
+                        style={{ color: item.color }}
                       >
                         {item.count}
                       </p>
-                      <p className="text-gray-600 text-sm font-semibold">{item.school}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">alumni</p>
+                      <p className="text-xs font-semibold text-gray-600 sm:text-sm">{item.school}</p>
+                      <p className="mt-0.5 text-xs text-gray-400">alumni</p>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Graduation Year Chart */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-gray-900 mb-4" style={{ fontWeight: 700 }}>
+              <div className={panelClass}>
+                <h3 className="mb-4 font-bold text-gray-900">
                   Alumni by Graduation Year
                 </h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={analytics.byYear} margin={{ left: -20 }}>
+                <ChartContainer height={isCompact ? 200 : 220}>
+                  <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.byYear} margin={{ left: isCompact ? 0 : -20, right: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="year" tick={{ fontSize: isCompact ? 9 : 11 }} />
+                    <YAxis tick={{ fontSize: isCompact ? 9 : 11 }} width={isCompact ? 28 : 40} />
                     <Tooltip content={CustomTooltip} />
                     <Bar dataKey="count" name="Graduates" fill={GOLD} radius={[4, 4, 0, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </ChartContainer>
               </div>
             </div>
           )}

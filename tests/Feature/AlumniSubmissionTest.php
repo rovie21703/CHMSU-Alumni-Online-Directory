@@ -24,7 +24,52 @@ test('guest can submit a valid alumni registration', function () {
         'email' => $payload['email'],
         'name' => $payload['name'],
         'consent_given' => true,
+        'campus' => 'TALISAY (MAIN) CAMPUS',
     ]);
+});
+
+test('alumni submission accepts custom birth place and religion when others is selected', function () {
+    $payload = validAlumniPayload();
+    $payload['email'] = 'others.alumni.'.uniqid().'@example.com';
+    $payload['birth_province'] = 'OTHERS';
+    $payload['birth_city'] = 'OTHERS';
+    $payload['birth_province_custom'] = 'SAMPLE PROVINCE';
+    $payload['birth_city_custom'] = 'SAMPLE CITY';
+    $payload['religion'] = 'OTHERS';
+    $payload['religion_other'] = 'INDIGENOUS BELIEF';
+
+    $this->post(route('alumni.store'), $payload)->assertRedirect(route('alumni.create'));
+
+    $alumni = Alumni::query()->where('email', $payload['email'])->first();
+
+    expect($alumni)->not->toBeNull();
+    expect($alumni->birth_city_id)->toBeNull();
+    expect($alumni->birth_province_custom)->toBe('SAMPLE PROVINCE');
+    expect($alumni->birth_city_custom)->toBe('SAMPLE CITY');
+    expect($alumni->religion)->toBe('INDIGENOUS BELIEF');
+});
+
+test('alumni submission requires religion', function () {
+    $payload = validAlumniPayload();
+    $payload['religion'] = '';
+
+    $this->post(route('alumni.store'), $payload)->assertSessionHasErrors('religion');
+});
+
+test('chmsc alumni submission uses free-text degree without program', function () {
+    $payload = validAlumniPayload();
+    $payload['email'] = 'chmsc.alumni.'.uniqid().'@example.com';
+    $payload['school_attended'] = 'CHMSC';
+    $payload['degree'] = 'BACHELOR OF SCIENCE IN CRIMINOLOGY';
+
+    $this->post(route('alumni.store'), $payload)->assertRedirect(route('alumni.create'));
+
+    $alumni = Alumni::query()->where('email', $payload['email'])->first();
+
+    expect($alumni)->not->toBeNull();
+    expect($alumni->school?->code)->toBe('CHMSC');
+    expect($alumni->program_id)->toBeNull();
+    expect($alumni->degree)->toBe('BACHELOR OF SCIENCE IN CRIMINOLOGY');
 });
 
 test('alumni submission requires consent', function () {
@@ -37,11 +82,22 @@ test('alumni submission requires consent', function () {
 test('alumni submission validates required fields', function () {
     $this->post(route('alumni.store'), [])->assertSessionHasErrors([
         'name',
-        'email',
         'school_id',
-        'program_id',
         'birth_city_id',
     ]);
+});
+
+test('alumni submission accepts missing email', function () {
+    $payload = validAlumniPayload();
+    $payload['email'] = '';
+    $payload['name'] = 'NO EMAIL ALUMNI';
+
+    $this->post(route('alumni.store'), $payload)->assertRedirect(route('alumni.create'));
+
+    $alumni = Alumni::query()->where('name', 'NO EMAIL ALUMNI')->first();
+
+    expect($alumni)->not->toBeNull();
+    expect($alumni->email)->toBeNull();
 });
 
 test('alumni submission rejects invalid birth province and city pair', function () {
