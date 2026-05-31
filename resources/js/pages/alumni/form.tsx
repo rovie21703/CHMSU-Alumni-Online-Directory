@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
   Award,
   Briefcase,
@@ -10,7 +10,6 @@ import {
   Mail,
   MapPin,
   Phone,
-  ShieldCheck,
   User,
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -123,14 +122,10 @@ function SectionHeader({
 }
 
 function RadioOption({
-  name,
-  value,
   label,
   checked,
   onChange,
 }: {
-  name: string;
-  value: string;
   label: string;
   checked: boolean;
   onChange: () => void;
@@ -151,41 +146,6 @@ function RadioOption({
           }`}
       >
         {checked && <div className="w-2 h-2 rounded-full bg-[#1A5336]" />}
-      </div>
-      <span className="text-sm font-medium">{label}</span>
-    </label>
-  );
-}
-
-function CheckboxOption({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <label
-      onClick={(e) => {
-        e.preventDefault();
-        onChange();
-      }}
-      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${checked
-        ? "border-[#1A5336] bg-[#E8F0EC] text-[#1A5336]"
-        : "border-gray-200 bg-white text-gray-700 hover:border-[#1A5336]/40"
-        }`}
-    >
-      <div
-        className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? "border-[#1A5336] bg-[#1A5336]" : "border-gray-300"
-          }`}
-      >
-        {checked && (
-          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-            <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
       </div>
       <span className="text-sm font-medium">{label}</span>
     </label>
@@ -454,8 +414,6 @@ export default function AlumniForm() {
                       {["MALE", "FEMALE"].map((s) => (
                         <RadioOption
                           key={s}
-                          name="sex"
-                          value={s}
                           label={s}
                           checked={watch("sex") === s}
                           onChange={() => setValue("sex", s)}
@@ -840,8 +798,6 @@ export default function AlumniForm() {
                       {(CAMPUS_SCHOOLS[selectedCampus] ?? []).map((s) => (
                           <RadioOption
                             key={s}
-                            name="schoolAttended"
-                            value={s}
                             label={s}
                             checked={schoolAttended === s}
                             onChange={() => {
@@ -912,8 +868,6 @@ export default function AlumniForm() {
                       {["MASTER", "DOCTORATE", "N/A"].map((a) => (
                         <RadioOption
                           key={a}
-                          name="highestAttainment"
-                          value={a}
                           label={a}
                           checked={watch("highestAttainment") === a}
                           onChange={() => setValue("highestAttainment", a)}
@@ -989,8 +943,6 @@ export default function AlumniForm() {
                     {["YES", "NO", "BUSINESS OWNER", "RETIRED"].map((s) => (
                       <RadioOption
                         key={s}
-                        name="employmentStatus"
-                        value={s}
                         label={s}
                         checked={watch("employmentStatus") === s}
                         onChange={() => setValue("employmentStatus", s)}
@@ -1060,8 +1012,6 @@ export default function AlumniForm() {
                               ].map((s) => (
                                 <RadioOption
                                   key={s}
-                                  name="employmentSector"
-                                  value={s}
                                   label={s}
                                   checked={watch("employmentSector") === s}
                                   onChange={() => setValue("employmentSector", s)}
@@ -1090,8 +1040,6 @@ export default function AlumniForm() {
                               (s) => (
                                 <RadioOption
                                   key={s}
-                                  name="presentEmploymentStatus"
-                                  value={s}
                                   label={s}
                                   checked={watch("presentEmploymentStatus") === s}
                                   onChange={() => setValue("presentEmploymentStatus", s)}
@@ -1168,8 +1116,6 @@ export default function AlumniForm() {
                               ].map((loc) => (
                                 <RadioOption
                                   key={loc}
-                                  name="locationOfEmployment"
-                                  value={loc}
                                   label={
                                     loc === "EMPLOYED ABROAD"
                                       ? "EMPLOYED ABROAD"

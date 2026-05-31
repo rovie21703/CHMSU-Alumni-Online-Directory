@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Shield, Trash2, UserCog } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 
 import InputError from '@/components/input-error';
 import {

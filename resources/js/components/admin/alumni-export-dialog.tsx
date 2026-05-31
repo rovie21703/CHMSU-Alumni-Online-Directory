@@ -176,7 +176,7 @@ export function AlumniExportDialog({ open, onOpenChange, exportOptions }: Alumni
             groups[column.group].push(column);
         });
         return groups;
-    }, [exportOptions.columns]);
+    }, [exportOptions]);
 
     const programOptions = useMemo(() => {
         const selectedCampuses =

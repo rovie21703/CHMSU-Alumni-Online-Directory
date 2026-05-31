@@ -67,13 +67,26 @@ import alumniLogo from '@/assets/images/alumni-logo.jfif';
 const MAROON = "#1A5336";
 const GOLD = "#FFB81C";
 const COLORS = ["#1A5336", "#FFB81C", "#2563eb", "#16a34a", "#9333ea", "#ea580c"];
+type ChartTooltipPayload = {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string;
+  color?: string;
+};
+
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string | number;
+};
+
 // Defined outside component to avoid recharts duplicate-key warnings on re-renders
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg">
         <p className="text-gray-600 text-xs mb-1">{label}</p>
-        {payload.map((p: any, i: number) => (
+        {payload.map((p, i: number) => (
           <p key={`tt-${p.dataKey ?? "k"}-${p.name ?? "n"}-${i}`} style={{ color: p.color }} className="text-sm font-semibold">
             {p.name}: {p.value}
           </p>
