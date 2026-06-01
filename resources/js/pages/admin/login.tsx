@@ -1,4 +1,5 @@
-import { Head, useForm } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 import { FormEventHandler, useState } from 'react';
@@ -13,6 +14,7 @@ interface LoginProps {
 }
 
 export default function AdminLogin({ status }: LoginProps) {
+    const { auth } = usePage<SharedData>().props;
     const [showPassword, setShowPassword] = useState(false);
     const { fields: protectionFields } = useFormProtection();
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -121,6 +123,35 @@ export default function AdminLogin({ status }: LoginProps) {
 
           {status && (
             <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>
+          )}
+
+          {auth.user && (
+            <div className="mb-6 rounded-xl border border-[#1A5336]/20 bg-[#1A5336]/5 p-4">
+              <p className="text-sm text-gray-700">
+                You are signed in as <span className="font-semibold text-gray-900">{auth.user.name}</span>
+                {' '}
+                (<span className="text-gray-600">{auth.user.email}</span>).
+              </p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <Link
+                  href={route('admin.dashboard')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#1A5336] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#134026]"
+                >
+                  Continue to dashboard
+                </Link>
+                <Link
+                  href={route('logout')}
+                  method="post"
+                  as="button"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Sign out
+                </Link>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                Sign in below with another account, or sign out first if you need a fresh session.
+              </p>
+            </div>
           )}
 
           {/* Error */}
