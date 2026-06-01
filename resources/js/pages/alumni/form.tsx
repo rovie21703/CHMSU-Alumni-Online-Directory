@@ -17,6 +17,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { ConsentModal } from '@/components/alumni/consent-modal';
+import { SubmissionInfoModal } from '@/components/alumni/submission-info-modal';
 import { BrandLogoStack, BrandLogos } from '@/components/brand-logos';
 import { FormProtectionFields } from '@/components/form-protection-fields';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -26,6 +27,7 @@ import { GRADUATION_YEAR_START, graduationYearOptions } from '@/data/graduation-
 import { PHILIPPINE_LOCATIONS, PHILIPPINE_PROVINCES } from '@/data/philippine-locations';
 import { RELIGIONS, SELECT_OTHERS } from '@/data/religions';
 import { useFormProtection } from '@/hooks/use-form-protection';
+import { resolveSubmissionErrors } from '@/lib/alumni-submission-errors';
 import type { SharedData } from '@/types';
 
 type FormData = {
@@ -157,6 +159,7 @@ export default function AlumniForm() {
   const { merge: mergeFormProtection } = useFormProtection();
   const [currentStep, setCurrentStep] = useState(1);
   const [showConsent, setShowConsent] = useState(false);
+  const [submissionInfo, setSubmissionInfo] = useState<{ title: string; message: string } | null>(null);
   const [pendingData, setPendingData] = useState<FormData | null>(null);
   const [submitted, setSubmitted] = useState(Boolean(flash?.success));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,6 +172,7 @@ export default function AlumniForm() {
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     trigger,
     formState: { errors },
@@ -180,6 +184,7 @@ export default function AlumniForm() {
   const birthProvince = watch("birthProvince");
   const birthCity = watch("birthCity");
   const religion = watch("religion");
+  const degree = watch("degree");
   const provinceIsOthers = birthProvince === SELECT_OTHERS;
   const cityIsOthers = birthCity === SELECT_OTHERS;
   const religionIsOthers = religion === SELECT_OTHERS;
@@ -272,15 +277,39 @@ export default function AlumniForm() {
       {
         onSuccess: () => {
           setShowConsent(false);
+          setSubmissionInfo(null);
           setSubmitted(true);
           reset();
           setSchoolAttended('');
           setSchoolError('');
           setCurrentStep(1);
         },
+        onError: (serverErrors) => {
+          setShowConsent(false);
+
+          const resolved = resolveSubmissionErrors(serverErrors as Record<string, string>);
+
+          setSubmissionInfo({
+            title: resolved.title,
+            message: resolved.message,
+          });
+          setCurrentStep(resolved.step);
+
+          Object.entries(resolved.formFieldErrors).forEach(([field, message]) => {
+            setError(field as keyof FormData, { type: 'server', message });
+          });
+
+          if (resolved.schoolError) {
+            setSchoolError(resolved.schoolError);
+          }
+        },
         onFinish: () => setIsSubmitting(false),
       },
     );
+  };
+
+  const handleCloseSubmissionInfo = () => {
+    setSubmissionInfo(null);
   };
 
   const handleDisagree = () => {
@@ -809,39 +838,35 @@ export default function AlumniForm() {
                       Degree / Course <span className="text-red-500">*</span>
                     </label>
                     {schoolAttended === "CHMSU" ? (
-                      <div className="relative">
-                        <select
-                          {...register("degree", { required: "Degree is required" })}
-                          className={selectClass}
+                      <>
+                        <input type="hidden" {...register("degree", { required: "Degree is required" })} />
+                        <SearchableSelect
+                          value={degree}
+                          onChange={(value) => {
+                            setValue("degree", value, { shouldValidate: true });
+                          }}
+                          options={selectedCampus ? (CAMPUS_PROGRAMS[selectedCampus] ?? []) : []}
+                          placeholder={selectedCampus ? "SELECT DEGREE / COURSE" : "PLEASE SELECT A CAMPUS FIRST"}
                           disabled={!selectedCampus}
-                        >
-                          <option value="">
-                            {selectedCampus ? "SELECT DEGREE / COURSE" : "PLEASE SELECT A CAMPUS FIRST"}
-                          </option>
-                          {selectedCampus &&
-                            CAMPUS_PROGRAMS[selectedCampus]?.map((program) => (
-                              <option key={program} value={program}>
-                                {program}
-                              </option>
-                            ))}
-                        </select>
-                        <ChevronDown
-                          size={16}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                          includeOthers={false}
+                          error={errors.degree?.message}
+                          triggerClassName={selectClass.replace('appearance-none cursor-pointer', '')}
                         />
-                      </div>
+                      </>
                     ) : (
-                      <input
-                        {...register("degree", { required: "Degree is required" })}
-                        className={inputClass}
-                        placeholder="E.G. BACHELOR OF SCIENCE IN INFORMATION SYSTEMS"
-                        onChange={(e) => {
-                          e.target.value = e.target.value.toUpperCase();
-                          setValue("degree", e.target.value);
-                        }}
-                      />
+                      <>
+                        <input
+                          {...register("degree", { required: "Degree is required" })}
+                          className={inputClass}
+                          placeholder="E.G. BACHELOR OF SCIENCE IN INFORMATION SYSTEMS"
+                          onChange={(e) => {
+                            e.target.value = e.target.value.toUpperCase();
+                            setValue("degree", e.target.value);
+                          }}
+                        />
+                        {errors.degree && <p className={errorClass}>{errors.degree.message}</p>}
+                      </>
                     )}
-                    {errors.degree && <p className={errorClass}>{errors.degree.message}</p>}
                   </div>
 
                   {/* Highest Educational Attainment */}
@@ -1186,6 +1211,14 @@ export default function AlumniForm() {
         {/* Consent Modal */}
         {showConsent && (
           <ConsentModal onAccept={handleAccept} onDisagree={handleDisagree} isSubmitting={isSubmitting} />
+        )}
+
+        {submissionInfo && (
+          <SubmissionInfoModal
+            title={submissionInfo.title}
+            message={submissionInfo.message}
+            onClose={handleCloseSubmissionInfo}
+          />
         )}
       </div>
     </>

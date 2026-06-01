@@ -145,7 +145,11 @@ test('alumni submission rejects duplicate email addresses', function () {
     $payload['email'] = $payload['email'];
     $payload['name'] = 'ANOTHER ALUMNI';
 
-    $this->post(route('alumni.store'), $payload)->assertSessionHasErrors('email');
+    $this->post(route('alumni.store'), $payload)
+        ->assertSessionHasErrors('email')
+        ->assertSessionHasErrors([
+            'email' => 'This email address is already registered in the alumni directory. Each email can only be used once. Please use a different email address or contact the administrator if you believe this is an error.',
+        ]);
 });
 
 /**

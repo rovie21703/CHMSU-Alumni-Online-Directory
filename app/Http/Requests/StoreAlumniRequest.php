@@ -109,4 +109,19 @@ class StoreAlumniRequest extends FormRequest
             'location_of_employment' => ['nullable', 'string', 'max:255'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'This email address is already registered in the alumni directory. Each email can only be used once. Please use a different email address or contact the administrator if you believe this is an error.',
+            'program_id.required' => 'Please select a valid degree or course for your campus.',
+            'program_id.exists' => 'The selected degree or course is not valid for your campus.',
+            'school_attended.required' => 'Please select the school you attended.',
+            'birth_city_id.required' => 'Please select a valid city or municipality for your place of birth.',
+            'birth_city_id.exists' => 'Please select a valid city or municipality for your place of birth.',
+        ];
+    }
 }
