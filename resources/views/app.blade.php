@@ -4,14 +4,6 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light">
-        <script>
-            document.documentElement.classList.remove('dark');
-            document.documentElement.style.colorScheme = 'light';
-
-            try {
-                localStorage.setItem('appearance', 'light');
-            } catch (e) {}
-        </script>
 
         <title inertia>CHMSU Alumni Online Directory</title>
 
@@ -23,7 +15,6 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
-        @routes
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         @inertiaHead

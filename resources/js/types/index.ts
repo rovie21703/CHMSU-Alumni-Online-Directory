@@ -1,3 +1,4 @@
+import { type Config } from 'ziggy-js';
 import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
@@ -29,6 +30,7 @@ export interface SharedData {
         honeypotField: string;
         formStartedAt: string;
     };
+    ziggy: Config;
     [key: string]: unknown;
 }
 

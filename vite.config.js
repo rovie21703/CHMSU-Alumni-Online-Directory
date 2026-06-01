@@ -1,3 +1,4 @@
+import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import {
@@ -6,6 +7,12 @@ import {
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+    resolve: {
+        alias: {
+            '@': path.resolve('resources/js'),
+            'ziggy-js': path.resolve('vendor/tightenco/ziggy'),
+        },
+    },
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
